@@ -1,0 +1,23 @@
+# Android / Gradle
+build/
+.gradle/
+local.properties
+*.apk
+*.aab
+*.keystore
+!.gitkeep
+
+# IDE
+.idea/
+*.iml
+.vscode/
+
+# OS
+.DS_Store
+
+# Kotlin
+*.class
+
+# Release artifacts
+release-artifacts/
+SHA256SUMS

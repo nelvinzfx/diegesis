@@ -1,0 +1,14 @@
+Diegesis
+========
+
+This project includes code adapted from RikkaHub's `:ai` module
+(AI provider layer: OpenAI-compatible and Anthropic providers,
+streaming, model registry), obtained via the nelvinzfx/rikkahub-forge
+repository.
+
+RikkaHub is distributed under a segmented dual license:
+GNU AGPL v3 for non-commercial / personal / educational / research use,
+and a separate commercial license for other uses.
+
+Diegesis is a non-commercial personal project and is itself licensed
+under AGPL v3. All adapted code remains under the terms of AGPL v3.
