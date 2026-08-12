@@ -28,3 +28,4 @@ SHA256SUMS
 *.env
 secrets.json
 **/secrets.json
+hello-config.json
