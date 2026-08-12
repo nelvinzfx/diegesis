@@ -1,5 +1,9 @@
 # Diegesis architecture (v0 sketch)
 
+Doc map: [scope](scope.md) · [ai port map](ai-port-map.md) ·
+[pipeline](pipeline.md) · [ui/theme](ui-theme.md) ·
+[storage](storage.md) · [workflow](workflow.md)
+
 ## Modules
 
 - `ai` — stripped port of RikkaHub's `:ai`. OpenAI-compatible (chat
