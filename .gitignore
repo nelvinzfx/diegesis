@@ -21,3 +21,10 @@ local.properties
 # Release artifacts
 release-artifacts/
 SHA256SUMS
+
+# Secrets (never commit)
+.env
+.env.*
+*.env
+secrets.json
+**/secrets.json
