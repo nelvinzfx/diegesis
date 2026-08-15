@@ -77,9 +77,13 @@ fun DiegesisApp(
     val turnStorage = remember { TurnStorage(filesDir) }
     val memoryStorage = remember { MemoryStorage(filesDir) }
 
-    // Load settings for AI caller
-    val settings = remember { settingsStorage.load() }
-    val aiCaller = remember {
+    // Settings are reactive: reloaded from disk on every navigation, and the
+    // caller is rebuilt whenever they change. No restart required.
+    var settings by remember { mutableStateOf(settingsStorage.load()) }
+    LaunchedEffect(currentScreen) {
+        settings = settingsStorage.load()
+    }
+    val aiCaller = remember(settings) {
         DefaultAiCaller(
             thinkProvider = settings.thinkModel.provider,
             thinkModel = settings.thinkModel.model,
@@ -123,7 +127,7 @@ fun DiegesisApp(
         }
 
         is Screen.CampaignCreate -> {
-            val viewModel = remember {
+            val viewModel = remember(aiCaller) {
                 CampaignCreateViewModel(campaignStorage, aiCaller)
             }
             CampaignCreateScreen(
@@ -136,7 +140,7 @@ fun DiegesisApp(
         }
 
         is Screen.Story -> {
-            val viewModel = remember(screen.campaignId) {
+            val viewModel = remember(screen.campaignId, aiCaller) {
                 val orchestrator = PipelineOrchestrator(
                     aiCaller = aiCaller,
                     campaignStorage = campaignStorage,

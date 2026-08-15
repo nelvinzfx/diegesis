@@ -76,6 +76,7 @@ class DefaultAiCaller(
         decoder: (String) -> T,
         fallback: T,
     ): T {
+        if (keyForProvider(thinkProvider).isBlank()) return fallback
         val base = listOf(
             UIMessage.system(systemPrompt),
             UIMessage.user(userPrompt),
@@ -100,6 +101,9 @@ class DefaultAiCaller(
         systemPrompt: String,
         userPrompt: String,
     ): Flow<String> {
+        if (keyForProvider(writeProvider).isBlank()) {
+            return flow { emit(MISSING_KEY_MESSAGE) }
+        }
         val messages = listOf(
             UIMessage.system(systemPrompt),
             UIMessage.user(userPrompt),
@@ -131,6 +135,9 @@ class DefaultAiCaller(
         systemPrompt: String,
         userPrompt: String,
     ): Flow<String> {
+        if (keyForProvider(thinkProvider).isBlank()) {
+            return flow { emit(MISSING_KEY_MESSAGE) }
+        }
         val messages = listOf(
             UIMessage.system(systemPrompt),
             UIMessage.user(userPrompt),
@@ -182,6 +189,9 @@ class DefaultAiCaller(
             .orEmpty()
     }
 
+    private fun keyForProvider(provider: String): String =
+        if (provider == PROVIDER_ANTHROPIC) anthropicApiKey else openaiApiKey
+
     private fun openAiSetting() = ProviderSetting.OpenAI(
         name = "Diegesis think/write (openai-compat)",
         apiKey = openaiApiKey,
@@ -205,6 +215,7 @@ class DefaultAiCaller(
     companion object {
         const val PROVIDER_OPENAI = "openai-compat"
         const val PROVIDER_ANTHROPIC = "anthropic"
+        const val MISSING_KEY_MESSAGE = "Set your API key in Settings first."
 
         /**
          * Models fence JSON in ```json blocks even when told not to. Strip the
