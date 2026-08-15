@@ -40,6 +40,16 @@ interface AiCaller {
         systemPrompt: String,
         userPrompt: String,
     ): Flow<String>
+
+    /**
+     * Stream non-scene prose from the THINK model (e.g. session plan
+     * generation). Default falls back to streamProse so fakes stay valid;
+     * the real caller overrides it with the think provider/model.
+     */
+    suspend fun streamThink(
+        systemPrompt: String,
+        userPrompt: String,
+    ): Flow<String> = streamProse(systemPrompt, userPrompt)
 }
 
 /**
@@ -101,6 +111,37 @@ class DefaultAiCaller(
         )
 
         return when (writeProvider) {
+            PROVIDER_ANTHROPIC -> flow {
+                ClaudeProvider(client)
+                    .streamText(claudeSetting(), messages, params)
+                    .collect { chunk -> chunk.textDeltas().forEach { emit(it) } }
+            }
+
+            PROVIDER_OPENAI -> flow {
+                OpenAIProvider(client)
+                    .streamText(openAiSetting(), messages, params)
+                    .collect { chunk -> chunk.textDeltas().forEach { emit(it) } }
+            }
+
+            else -> emptyFlow()
+        }
+    }
+
+    override suspend fun streamThink(
+        systemPrompt: String,
+        userPrompt: String,
+    ): Flow<String> {
+        val messages = listOf(
+            UIMessage.system(systemPrompt),
+            UIMessage.user(userPrompt),
+        )
+        val params = TextGenerationParams(
+            model = Model(modelId = thinkModel, displayName = thinkModel),
+            temperature = 0.7f,
+            maxTokens = 4096,
+        )
+
+        return when (thinkProvider) {
             PROVIDER_ANTHROPIC -> flow {
                 ClaudeProvider(client)
                     .streamText(claudeSetting(), messages, params)

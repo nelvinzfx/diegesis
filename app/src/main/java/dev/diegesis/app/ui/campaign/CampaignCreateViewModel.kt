@@ -88,7 +88,7 @@ Generate a session plan with a 3-act structure.
 """.trim()
 
                 val plan = StringBuilder()
-                aiCaller.streamProse(systemPrompt, userPrompt).collect { delta ->
+                aiCaller.streamThink(systemPrompt, userPrompt).collect { delta ->
                     plan.append(delta)
                     _uiState.value = _uiState.value.copy(sessionPlan = plan.toString())
                 }
