@@ -36,6 +36,14 @@ jobs:
           ./gradlew :ai:compileDebugKotlin :ai:testDebugUnitTest :app:testDebugUnitTest :app:assembleDebug \
             --no-daemon --stacktrace
 
+      - name: Upload debug APK
+        if: success()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: diegesis-debug-apk
+          path: app/build/outputs/apk/debug/app-debug.apk
+          retention-days: 14
+
       - name: Upload build report on failure
         if: failure()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
