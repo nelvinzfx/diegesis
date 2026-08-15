@@ -101,8 +101,12 @@ object VisibilityContextAssembler {
      * A turn is visible if:
      * - presentNpcIds is empty (solo player scene), OR
      * - at least one currently present NPC was also present in that past turn
+     *
+     * Public so the orchestrator can apply context-window trimming between
+     * visibility filtering and assembly (the trimmer must only ever see
+     * turns that are already visibility-legal).
      */
-    private fun filterVisibleTurns(allTurns: List<Turn>, presentNpcIds: List<String>): List<Turn> {
+    fun filterVisibleTurns(allTurns: List<Turn>, presentNpcIds: List<String>): List<Turn> {
         // Solo player scene: all turns are visible
         if (presentNpcIds.isEmpty()) {
             return allTurns

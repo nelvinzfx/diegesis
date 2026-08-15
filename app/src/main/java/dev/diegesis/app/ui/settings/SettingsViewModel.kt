@@ -23,6 +23,11 @@ data class SettingsUiState(
     val writeProvider: String = "anthropic",
     val writeModel: String = "claude-3-5-sonnet-20241022",
     val language: String = "English",
+    // Generation controls held as text so the fields are freely editable;
+    // validated (Int, >= 512) on save, invalid input reverts to last saved.
+    val thinkMaxTokens: String = "4096",
+    val writeMaxTokens: String = "8192",
+    val contextWindowTokens: String = "32768",
     val isLoading: Boolean = false,
     val successMessage: String? = null,
     val errorMessage: String? = null
@@ -58,6 +63,9 @@ class SettingsViewModel(
                     writeProvider = settings.writeModel.provider,
                     writeModel = settings.writeModel.model,
                     language = settings.language,
+                    thinkMaxTokens = settings.thinkMaxTokens.toString(),
+                    writeMaxTokens = settings.writeMaxTokens.toString(),
+                    contextWindowTokens = settings.contextWindowTokens.toString(),
                     isLoading = false
                 )
             } catch (e: Exception) {
@@ -101,17 +109,39 @@ class SettingsViewModel(
         _uiState.value = _uiState.value.copy(language = language)
     }
 
+    fun updateThinkMaxTokens(value: String) {
+        _uiState.value = _uiState.value.copy(thinkMaxTokens = value)
+    }
+
+    fun updateWriteMaxTokens(value: String) {
+        _uiState.value = _uiState.value.copy(writeMaxTokens = value)
+    }
+
+    fun updateContextWindowTokens(value: String) {
+        _uiState.value = _uiState.value.copy(contextWindowTokens = value)
+    }
+
     fun saveSettings() {
         scope.launch {
             try {
                 val state = _uiState.value
+                // Invalid or too-small numeric input reverts to the last
+                // persisted value rather than saving garbage.
+                val previous = withContext(ioDispatcher) { storage.load() }
+                val thinkTokens = parseTokens(state.thinkMaxTokens, previous.thinkMaxTokens)
+                val writeTokens = parseTokens(state.writeMaxTokens, previous.writeMaxTokens)
+                val windowTokens = parseTokens(state.contextWindowTokens, previous.contextWindowTokens)
+
                 val settings = AppSettings(
                     openaiBaseUrl = state.openaiBaseUrl.trim().trimEnd('/'),
                     openaiApiKey = state.openaiApiKey.trim(),
                     anthropicApiKey = state.anthropicApiKey.trim(),
                     thinkModel = StageModelSelection(state.thinkProvider, state.thinkModel.trim()),
                     writeModel = StageModelSelection(state.writeProvider, state.writeModel.trim()),
-                    language = state.language
+                    language = state.language.trim(),
+                    thinkMaxTokens = thinkTokens,
+                    writeMaxTokens = writeTokens,
+                    contextWindowTokens = windowTokens
                 )
 
                 withContext(ioDispatcher) {
@@ -119,6 +149,9 @@ class SettingsViewModel(
                 }
 
                 _uiState.value = _uiState.value.copy(
+                    thinkMaxTokens = thinkTokens.toString(),
+                    writeMaxTokens = writeTokens.toString(),
+                    contextWindowTokens = windowTokens.toString(),
                     successMessage = "Settings saved"
                 )
             } catch (e: Exception) {
@@ -134,5 +167,15 @@ class SettingsViewModel(
             successMessage = null,
             errorMessage = null
         )
+    }
+
+    companion object {
+        const val MIN_TOKENS = 512
+
+        /** Parse a token-count field: valid Int >= [MIN_TOKENS], else [fallback]. */
+        fun parseTokens(raw: String, fallback: Int): Int {
+            val parsed = raw.trim().toIntOrNull() ?: return fallback
+            return if (parsed >= MIN_TOKENS) parsed else fallback
+        }
     }
 }

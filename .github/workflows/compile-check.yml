@@ -33,7 +33,9 @@ jobs:
       - name: Compile and test
         run: |
           chmod +x gradlew
-          ./gradlew :ai:compileDebugKotlin :ai:testDebugUnitTest :app:testDebugUnitTest :app:assembleDebug \
+          # assembleRelease runs WITHOUT release secrets on purpose: it proves
+          # the release buildType's debug-signing fallback keeps building.
+          ./gradlew :ai:compileDebugKotlin :ai:testDebugUnitTest :app:testDebugUnitTest :app:assembleDebug :app:assembleRelease \
             --no-daemon --stacktrace
 
       - name: Upload debug APK

@@ -11,6 +11,7 @@ import dev.diegesis.app.data.storage.MemoryStorage
 import dev.diegesis.app.data.storage.NpcStorage
 import dev.diegesis.app.data.storage.TurnStorage
 import dev.diegesis.app.engine.ai.AiCaller
+import dev.diegesis.app.engine.assembler.ContextWindowTrimmer
 import dev.diegesis.app.engine.assembler.VisibilityContextAssembler
 import dev.diegesis.app.engine.mechanics.DeckMechanics
 import dev.diegesis.app.engine.memory.MemoryRetriever
@@ -36,7 +37,11 @@ class PipelineOrchestrator(
     private val npcStorage: NpcStorage,
     private val turnStorage: TurnStorage,
     private val memoryStorage: MemoryStorage,
-    private val random: Random = Random.Default
+    private val random: Random = Random.Default,
+    // Context-window enforcement (see docs/pipeline.md + AppSettings).
+    // Budget for history+payload = (contextWindowTokens - writeMaxTokens) * 0.8.
+    private val contextWindowTokens: Int = 32768,
+    private val writeMaxTokens: Int = 8192
 ) {
     private val routerStage = RouterStage(aiCaller)
     private val plotStage = PlotStage(aiCaller)
@@ -149,12 +154,23 @@ class PipelineOrchestrator(
             allMemories = allMemories
         )
 
+        // Context-window enforcement: trim the visibility-filtered history so
+        // the estimated payload fits the configured window, dropping oldest
+        // turns first. chars/4 ≈ tokens; 80% of (window - write budget).
+        val visibleTurns = VisibilityContextAssembler.filterVisibleTurns(allTurns, presentNpcIds)
+        val historyBudgetTokens = ((contextWindowTokens - writeMaxTokens) * 0.8).toInt()
+        val trimmedTurns = ContextWindowTrimmer.trimToFit(visibleTurns, historyBudgetTokens)
+        if (trimmedTurns.size < visibleTurns.size) {
+            stageEvents += "context: history trimmed to last ${trimmedTurns.size} turns " +
+                "(budget $historyBudgetTokens tokens)"
+        }
+
         val context = VisibilityContextAssembler.assemble(
             synopsis = plotOutput.synopsis,
             mechanicResults = mechanicResults,
             presentNpcIds = presentNpcIds,
             presentNpcs = presentNpcs,
-            allTurns = allTurns,
+            allTurns = trimmedTurns,
             retrievedMemories = sceneRetrieval,
             playerInput = playerInput
         )

@@ -96,6 +96,8 @@ fun DiegesisApp(
             openaiApiKey = settings.openaiApiKey,
             anthropicApiKey = settings.anthropicApiKey,
             language = settings.language,
+            thinkMaxTokens = settings.thinkMaxTokens,
+            writeMaxTokens = settings.writeMaxTokens,
             client = httpClient
         )
     }
@@ -151,7 +153,9 @@ fun DiegesisApp(
                     campaignStorage = campaignStorage,
                     npcStorage = npcStorage,
                     turnStorage = turnStorage,
-                    memoryStorage = memoryStorage
+                    memoryStorage = memoryStorage,
+                    contextWindowTokens = settings.contextWindowTokens,
+                    writeMaxTokens = settings.writeMaxTokens
                 )
                 StoryViewModel(
                     campaignId = screen.campaignId,

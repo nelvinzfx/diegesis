@@ -2,12 +2,14 @@ package dev.diegesis.app.ui.settings
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import dev.diegesis.app.ui.theme.DiegesisColors
@@ -188,38 +190,58 @@ fun SettingsScreen(
                 )
 
                 Text(
-                    text = "The writer always uses this language, even for English character cards.",
+                    text = "The writer follows this language; dialogue follows each character's background.",
                     fontSize = 12.sp,
                     color = DiegesisColors.TextDim
                 )
 
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                OutlinedTextField(
+                    value = uiState.language,
+                    onValueChange = { viewModel.updateLanguage(it) },
+                    label = { Text("Story Language", color = DiegesisColors.TextDim) },
+                    placeholder = { Text("e.g. Bahasa Indonesia, English, 日本語…", color = DiegesisColors.TextFaint) },
+                    singleLine = true,
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedTextColor = DiegesisColors.Text,
+                        unfocusedTextColor = DiegesisColors.Text,
+                        focusedContainerColor = DiegesisColors.Surface,
+                        unfocusedContainerColor = DiegesisColors.Surface,
+                        focusedBorderColor = DiegesisColors.TextDim,
+                        unfocusedBorderColor = DiegesisColors.Border
+                    ),
                     modifier = Modifier.fillMaxWidth()
-                ) {
-                    FilterChip(
-                        selected = uiState.language == "English",
-                        onClick = { viewModel.updateLanguage("English") },
-                        label = { Text("English") },
-                        colors = FilterChipDefaults.filterChipColors(
-                            selectedContainerColor = DiegesisColors.Amber,
-                            selectedLabelColor = DiegesisColors.Bg,
-                            containerColor = DiegesisColors.Surface2,
-                            labelColor = DiegesisColors.Text
-                        )
-                    )
-                    FilterChip(
-                        selected = uiState.language == "Bahasa Indonesia",
-                        onClick = { viewModel.updateLanguage("Bahasa Indonesia") },
-                        label = { Text("Bahasa Indonesia") },
-                        colors = FilterChipDefaults.filterChipColors(
-                            selectedContainerColor = DiegesisColors.Amber,
-                            selectedLabelColor = DiegesisColors.Bg,
-                            containerColor = DiegesisColors.Surface2,
-                            labelColor = DiegesisColors.Text
-                        )
-                    )
-                }
+                )
+
+                HorizontalDivider(color = DiegesisColors.Border, modifier = Modifier.padding(vertical = 8.dp))
+
+                // Generation Section
+                Text(
+                    text = "Generation",
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = DiegesisColors.Text
+                )
+
+                TokenField(
+                    value = uiState.thinkMaxTokens,
+                    onValueChange = { viewModel.updateThinkMaxTokens(it) },
+                    label = "Think max tokens",
+                    helper = "Output cap for router, plot, agency, and extraction."
+                )
+
+                TokenField(
+                    value = uiState.writeMaxTokens,
+                    onValueChange = { viewModel.updateWriteMaxTokens(it) },
+                    label = "Write max tokens",
+                    helper = "Output cap for scene prose."
+                )
+
+                TokenField(
+                    value = uiState.contextWindowTokens,
+                    onValueChange = { viewModel.updateContextWindowTokens(it) },
+                    label = "Context window (tokens)",
+                    helper = "Older history is trimmed to fit this window."
+                )
 
                 // Save Button
                 Button(
@@ -269,6 +291,42 @@ fun SettingsScreen(
                 }
             }
         }
+    }
+}
+
+/**
+ * Numeric settings field for token counts. Input is kept as raw text here;
+ * the ViewModel validates on save (Int, >= 512) and reverts invalid values.
+ */
+@Composable
+private fun TokenField(
+    value: String,
+    onValueChange: (String) -> Unit,
+    label: String,
+    helper: String
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        OutlinedTextField(
+            value = value,
+            onValueChange = onValueChange,
+            label = { Text(label, color = DiegesisColors.TextDim) },
+            singleLine = true,
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedTextColor = DiegesisColors.Text,
+                unfocusedTextColor = DiegesisColors.Text,
+                focusedContainerColor = DiegesisColors.Surface,
+                unfocusedContainerColor = DiegesisColors.Surface,
+                focusedBorderColor = DiegesisColors.TextDim,
+                unfocusedBorderColor = DiegesisColors.Border
+            ),
+            modifier = Modifier.fillMaxWidth()
+        )
+        Text(
+            text = helper,
+            fontSize = 12.sp,
+            color = DiegesisColors.TextDim
+        )
     }
 }
 

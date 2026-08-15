@@ -68,6 +68,8 @@ class DefaultAiCaller(
     private val openaiApiKey: String,
     private val anthropicApiKey: String,
     private val language: String = "English",
+    private val thinkMaxTokens: Int = 4096,
+    private val writeMaxTokens: Int = 8192,
     private val client: OkHttpClient,
 ) : AiCaller {
 
@@ -112,7 +114,7 @@ class DefaultAiCaller(
         val params = TextGenerationParams(
             model = Model(modelId = writeModel, displayName = writeModel),
             temperature = 0.85f,
-            maxTokens = 8192,
+            maxTokens = writeMaxTokens,
         )
 
         return when (writeProvider) {
@@ -146,7 +148,7 @@ class DefaultAiCaller(
         val params = TextGenerationParams(
             model = Model(modelId = thinkModel, displayName = thinkModel),
             temperature = 0.7f,
-            maxTokens = 4096,
+            maxTokens = thinkMaxTokens,
         )
 
         return when (thinkProvider) {
@@ -170,7 +172,7 @@ class DefaultAiCaller(
         val params = TextGenerationParams(
             model = Model(modelId = thinkModel, displayName = thinkModel),
             temperature = 0.3f,
-            maxTokens = 4096,
+            maxTokens = thinkMaxTokens,
         )
 
         val chunk = when (thinkProvider) {

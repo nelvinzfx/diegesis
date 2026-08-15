@@ -129,6 +129,21 @@ class PipelineOrchestratorTest {
         random = Random(seed),
     )
 
+    private fun orchestratorWithWindow(
+        fake: FakeAiCaller,
+        contextWindowTokens: Int,
+        writeMaxTokens: Int,
+    ) = PipelineOrchestrator(
+        aiCaller = fake,
+        campaignStorage = campaigns,
+        npcStorage = npcs,
+        turnStorage = turns,
+        memoryStorage = memories,
+        random = Random(7),
+        contextWindowTokens = contextWindowTokens,
+        writeMaxTokens = writeMaxTokens,
+    )
+
     // ---- happy path -------------------------------------------------------
 
     @Test
@@ -460,6 +475,73 @@ class PipelineOrchestratorTest {
         assertNotNull(loaded)
         assertEquals("legacy input", loaded!!.playerInput)
         assertTrue(loaded.variants.first().stageEvents.isEmpty())
+    }
+
+    // ---- context window enforcement (phase 7) ------------------------------
+
+    @Test
+    fun `oversized history is trimmed and records a stage event`() = runBlocking {
+        // Budget = (1024 - 512) * 0.8 = 409 tokens = 1636 chars. Three past
+        // turns of ~4000 chars each: only the newest survives.
+        (0..2).forEach { i ->
+            turns.saveTurn(
+                campaignId,
+                Turn(
+                    index = i,
+                    playerInput = "TURN_${i}_INPUT",
+                    variants = listOf(
+                        TurnVariant(
+                            id = "v$i",
+                            synopsis = "s$i",
+                            sceneOutput = "TURN_${i}_SCENE " + "x".repeat(4000),
+                            presentNpcIds = listOf("alice"),
+                        )
+                    ),
+                )
+            )
+        }
+
+        val fake = FakeAiCaller(
+            plotJson = """{"synopsis":"Continues.","present_npcs":["alice"],"scene_change":false,"location":null,"tracker_updates":[]}"""
+        )
+        val variant = orchestratorWithWindow(fake, contextWindowTokens = 1024, writeMaxTokens = 512)
+            .executeTurn(campaignId, "press on") {}
+
+        assertTrue(
+            "expected a context trim event, got ${variant.stageEvents}",
+            variant.stageEvents.any { it.startsWith("context: history trimmed to last 1 turns") }
+        )
+        // The newest turn stays in the prompt; the oldest is gone.
+        val prompt = fake.lastScenePrompt!!
+        assertTrue("newest turn missing", prompt.contains("TURN_2_SCENE"))
+        assertFalse("oldest turn leaked past the trim", prompt.contains("TURN_0_SCENE"))
+    }
+
+    @Test
+    fun `history under the budget is not trimmed and records no event`() = runBlocking {
+        turns.saveTurn(
+            campaignId,
+            Turn(
+                index = 0,
+                playerInput = "small",
+                variants = listOf(
+                    TurnVariant(
+                        id = "v0",
+                        synopsis = "s0",
+                        sceneOutput = "SMALL_SCENE",
+                        presentNpcIds = listOf("alice"),
+                    )
+                ),
+            )
+        )
+
+        val fake = FakeAiCaller(
+            plotJson = """{"synopsis":"Continues.","present_npcs":["alice"],"scene_change":false,"location":null,"tracker_updates":[]}"""
+        )
+        val variant = orchestrator(fake).executeTurn(campaignId, "press on") {}
+
+        assertTrue(variant.stageEvents.none { it.startsWith("context:") })
+        assertTrue(fake.lastScenePrompt!!.contains("SMALL_SCENE"))
     }
 
     @Test

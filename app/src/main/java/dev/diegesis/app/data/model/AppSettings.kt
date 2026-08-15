@@ -11,7 +11,12 @@ data class AppSettings(
     val anthropicApiKey: String = "",
     // Story output language. The writer follows this even when character
     // cards or other source material are in another language.
-    val language: String = "English"
+    val language: String = "English",
+    
+    // Generation token limits
+    val thinkMaxTokens: Int = 4096,
+    val writeMaxTokens: Int = 8192,
+    val contextWindowTokens: Int = 32768
 )
 
 @Serializable
