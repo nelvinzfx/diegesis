@@ -129,7 +129,7 @@ class CampaignCreateViewModelTest {
 
         val state = viewModel.uiState.value
         assertNotNull(state.errorMessage)
-        assertTrue(state.errorMessage!!.contains("Premise"))
+        assertTrue(state.errorMessage!!.contains("premise", ignoreCase = true))
     }
 
     @Test
