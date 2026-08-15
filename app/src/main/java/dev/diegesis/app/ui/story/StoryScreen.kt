@@ -7,10 +7,13 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -82,8 +85,14 @@ fun StoryScreen(
                     )
                 }
 
-                // Streaming text
-                if (uiState.streamingText.isNotEmpty()) {
+                // Just-sent player input, echoed instantly while the pipeline runs.
+                uiState.pendingPlayerInput?.let { pending ->
+                    item { PlayerTurnItem(pending) }
+                }
+
+                // Assistant placeholder: appears empty the moment generation
+                // starts, then fills token by token from the SSE stream.
+                if (uiState.isStreaming) {
                     item {
                         AssistantTurnItem(
                             variant = TurnVariant(
@@ -215,18 +224,20 @@ fun PlayerTurnItem(input: String) {
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.End
     ) {
-        Box(
-            modifier = Modifier
-                .widthIn(max = 320.dp)
-                .background(DiegesisColors.Surface2, RoundedCornerShape(12.dp))
-                .padding(12.dp)
-        ) {
-            Text(
-                text = input,
-                color = DiegesisColors.Text,
-                fontSize = 16.sp,
-                lineHeight = 24.sp
-            )
+        SelectionContainer {
+            Box(
+                modifier = Modifier
+                    .widthIn(max = 320.dp)
+                    .background(DiegesisColors.Surface2, RoundedCornerShape(12.dp))
+                    .padding(12.dp)
+            ) {
+                Text(
+                    text = input,
+                    color = DiegesisColors.Text,
+                    fontSize = 16.sp,
+                    lineHeight = 24.sp
+                )
+            }
         }
     }
 }
@@ -245,6 +256,7 @@ fun AssistantTurnItem(
 ) {
     var showContextMenu by remember { mutableStateOf(false) }
     var showDeleteConfirm by remember { mutableStateOf(false) }
+    val clipboard = LocalClipboardManager.current
 
     Column(
         modifier = Modifier
@@ -265,11 +277,19 @@ fun AssistantTurnItem(
             }
         }
 
-        // Prose content
-        MarkdownText(
-            markdown = variant.sceneOutput,
-            modifier = Modifier.fillMaxWidth()
-        )
+        // Prose content (empty placeholder while awaiting first chunk)
+        if (isStreaming && variant.sceneOutput.isBlank()) {
+            Text(
+                text = "…",
+                color = DiegesisColors.TextFaint,
+                fontSize = 17.sp
+            )
+        } else {
+            MarkdownText(
+                markdown = variant.sceneOutput,
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
 
         // Variant pager
         if (totalVariants > 1) {
@@ -285,6 +305,10 @@ fun AssistantTurnItem(
     if (showContextMenu) {
         TurnContextMenu(
             onDismiss = { showContextMenu = false },
+            onCopy = {
+                showContextMenu = false
+                clipboard.setText(AnnotatedString(variant.sceneOutput))
+            },
             onRegenerate = {
                 showContextMenu = false
                 onRegenerate()
@@ -433,6 +457,7 @@ fun VariantPager(
 @Composable
 fun TurnContextMenu(
     onDismiss: () -> Unit,
+    onCopy: () -> Unit,
     onRegenerate: () -> Unit,
     onEditAndResend: () -> Unit,
     onDelete: () -> Unit,
@@ -443,6 +468,12 @@ fun TurnContextMenu(
         title = { Text("Turn Actions") },
         text = {
             Column {
+                TextButton(
+                    onClick = onCopy,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("Copy Text", modifier = Modifier.fillMaxWidth())
+                }
                 TextButton(
                     onClick = onRegenerate,
                     modifier = Modifier.fillMaxWidth()

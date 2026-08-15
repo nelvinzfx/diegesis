@@ -41,6 +41,7 @@ class StoryViewModelTest {
     private class FakeStoryAiCaller : AiCaller {
         var proseChunks = listOf("The ", "story ", "unfolds.")
         var shouldThrow = false
+        var gate: kotlinx.coroutines.CompletableDeferred<Unit>? = null
 
         override suspend fun <T> generateStructured(
             systemPrompt: String,
@@ -65,7 +66,16 @@ class StoryViewModelTest {
 
         override suspend fun streamProse(systemPrompt: String, userPrompt: String): Flow<String> {
             if (shouldThrow) throw RuntimeException("Model failed")
-            return proseChunks.asFlow()
+            val g = gate
+            return if (g != null) {
+                kotlinx.coroutines.flow.flow {
+                    emit("partial ")
+                    g.await()
+                    emit("rest")
+                }
+            } else {
+                proseChunks.asFlow()
+            }
         }
     }
 
@@ -192,6 +202,29 @@ class StoryViewModelTest {
         assertEquals(2, state.turns.size)
         assertEquals("Original turn 0", state.turns[0].playerInput)
         assertEquals("Modified turn 1", state.turns[1].playerInput)
+    }
+
+    @Test
+    fun `stop mid-stream keeps partial prose as interrupted turn`() = runBlocking {
+        val gate = kotlinx.coroutines.CompletableDeferred<Unit>()
+        fakeAi.gate = gate
+
+        viewModel.sendPlayerInput("risky move")
+
+        // Pipeline is parked at the gate: echo and placeholder state visible.
+        assertTrue(viewModel.uiState.value.isStreaming)
+        assertEquals("risky move", viewModel.uiState.value.pendingPlayerInput)
+        assertEquals("partial ", viewModel.uiState.value.streamingText)
+
+        viewModel.stopGeneration()
+
+        val state = viewModel.uiState.value
+        assertFalse(state.isStreaming)
+        assertEquals(null, state.pendingPlayerInput)
+        assertEquals(1, state.turns.size)
+        val variant = state.turns[0].variants.single()
+        assertTrue(variant.interrupted)
+        assertEquals("partial ", variant.sceneOutput)
     }
 
     @Test
