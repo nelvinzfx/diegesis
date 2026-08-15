@@ -54,14 +54,17 @@ class PipelineOrchestrator(
     suspend fun executeTurn(
         campaignId: String,
         playerInput: String,
+        targetTurnIndex: Int? = null,
         onChunk: (String) -> Unit
     ): TurnVariant {
         val campaign = campaignStorage.load(campaignId)
             ?: error("Campaign $campaignId not found")
 
         val existingIndices = turnStorage.listTurnIndices(campaignId)
-        val turnIndex = (existingIndices.maxOrNull() ?: -1) + 1
-        val allTurns = existingIndices.mapNotNull { turnStorage.loadTurn(campaignId, it) }
+        val turnIndex = targetTurnIndex ?: ((existingIndices.maxOrNull() ?: -1) + 1)
+        val allTurns = existingIndices
+            .filter { it < turnIndex }
+            .mapNotNull { turnStorage.loadTurn(campaignId, it) }
 
         // ---- 1. Retrieve memories -------------------------------------------
         val allMemories = runCatching { memoryStorage.loadMemories(campaignId) }
