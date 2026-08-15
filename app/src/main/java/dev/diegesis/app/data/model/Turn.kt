@@ -19,5 +19,11 @@ data class TurnVariant(
     val presentNpcIds: List<String> = emptyList(),
     val mechanicResults: List<MechanicResult> = emptyList(),
     val interrupted: Boolean = false,
-    val timestamp: Long = System.currentTimeMillis()
+    val timestamp: Long = System.currentTimeMillis(),
+    /**
+     * Terse one-line pipeline events recorded by the orchestrator, e.g.
+     * "plot: fallback used (json parse failed)". Default keeps pre-phase-6
+     * turn files loadable.
+     */
+    val stageEvents: List<String> = emptyList()
 )

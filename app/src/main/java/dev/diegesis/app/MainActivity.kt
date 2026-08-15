@@ -20,6 +20,8 @@ import dev.diegesis.app.ui.campaign.CampaignCreateScreen
 import dev.diegesis.app.ui.campaign.CampaignCreateViewModel
 import dev.diegesis.app.ui.campaign.CampaignListScreen
 import dev.diegesis.app.ui.campaign.CampaignListViewModel
+import dev.diegesis.app.ui.memories.MemoriesScreen
+import dev.diegesis.app.ui.memories.MemoriesViewModel
 import dev.diegesis.app.ui.npc.NpcManagementScreen
 import dev.diegesis.app.ui.npc.NpcViewModel
 import dev.diegesis.app.ui.settings.SettingsScreen
@@ -37,6 +39,7 @@ sealed class Screen {
     object CampaignCreate : Screen()
     data class Story(val campaignId: String) : Screen()
     data class NpcManagement(val campaignId: String) : Screen()
+    data class Memories(val campaignId: String) : Screen()
     object Settings : Screen()
 }
 
@@ -102,6 +105,7 @@ fun DiegesisApp(
         currentScreen = when (val screen = currentScreen) {
             is Screen.Story -> Screen.CampaignList
             is Screen.NpcManagement -> Screen.Story(screen.campaignId)
+            is Screen.Memories -> Screen.Story(screen.campaignId)
             is Screen.CampaignCreate -> Screen.CampaignList
             is Screen.Settings -> Screen.CampaignList
             is Screen.CampaignList -> Screen.CampaignList
@@ -169,7 +173,8 @@ fun DiegesisApp(
             StoryScreen(
                 viewModel = viewModel,
                 onBack = { currentScreen = Screen.CampaignList },
-                onOpenNpcs = { currentScreen = Screen.NpcManagement(screen.campaignId) }
+                onOpenNpcs = { currentScreen = Screen.NpcManagement(screen.campaignId) },
+                onOpenMemories = { currentScreen = Screen.Memories(screen.campaignId) }
             )
         }
 
@@ -178,6 +183,17 @@ fun DiegesisApp(
                 NpcViewModel(npcStorage)
             }
             NpcManagementScreen(
+                viewModel = viewModel,
+                campaignId = screen.campaignId,
+                onBack = { currentScreen = Screen.Story(screen.campaignId) }
+            )
+        }
+
+        is Screen.Memories -> {
+            val viewModel = remember(screen.campaignId) {
+                MemoriesViewModel(memoryStorage, npcStorage)
+            }
+            MemoriesScreen(
                 viewModel = viewModel,
                 campaignId = screen.campaignId,
                 onBack = { currentScreen = Screen.Story(screen.campaignId) }

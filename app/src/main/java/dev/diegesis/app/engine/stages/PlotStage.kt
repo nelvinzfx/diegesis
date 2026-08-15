@@ -74,7 +74,7 @@ Rules:
         }
         
         val fallback = PlotOutput(
-            synopsis = "The moment stretches; the situation stays tense.",
+            synopsis = FALLBACK_SYNOPSIS,
             present_npcs = emptyList(),
             scene_change = false,
             location = null,
@@ -89,5 +89,14 @@ Rules:
             },
             fallback = fallback
         )
+    }
+
+    companion object {
+        /**
+         * Sentinel synopsis of the documented plot fallback (pipeline.md §3).
+         * The orchestrator compares against this to record a stage event
+         * whenever the plot stage fell back rather than parsed.
+         */
+        const val FALLBACK_SYNOPSIS = "The moment stretches; the situation stays tense."
     }
 }

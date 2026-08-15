@@ -376,6 +376,92 @@ class PipelineOrchestratorTest {
         assertNotNull(turns.loadTurn(campaignId, 0))
     }
 
+    // ---- stage events (pipeline transparency) -------------------------------
+
+    @Test
+    fun `malformed plot JSON records a fallback stage event on the variant`() = runBlocking {
+        val fake = FakeAiCaller(plotJson = "this is not json at all")
+
+        val variant = orchestrator(fake).executeTurn(campaignId, "do something") {}
+
+        assertTrue(
+            "expected a plot fallback event, got ${variant.stageEvents}",
+            variant.stageEvents.any { it.startsWith("plot: fallback used") }
+        )
+        // The event survives the round-trip to disk.
+        val saved = turns.loadTurn(campaignId, 0)!!.variants.first()
+        assertTrue(saved.stageEvents.any { it.startsWith("plot: fallback used") })
+    }
+
+    @Test
+    fun `a clean turn has an empty stage event list`() = runBlocking {
+        val fake = FakeAiCaller()
+
+        val variant = orchestrator(fake).executeTurn(campaignId, "look around") {}
+
+        assertTrue(
+            "clean turn must record no events, got ${variant.stageEvents}",
+            variant.stageEvents.isEmpty()
+        )
+    }
+
+    @Test
+    fun `scene failure records an interrupted stage event`() = runBlocking {
+        val fake = FakeAiCaller(proseThrows = true)
+
+        val variant = orchestrator(fake).executeTurn(campaignId, "provoke") {}
+
+        assertTrue(variant.interrupted)
+        assertTrue(
+            variant.stageEvents.any {
+                it.startsWith("scene: interrupted") && it.contains("scene model exploded")
+            }
+        )
+    }
+
+    @Test
+    fun `applied tracker update records a stage event`() = runBlocking {
+        val fake = FakeAiCaller(
+            plotJson = """{"synopsis":"She recoils.","present_npcs":["alice"],"scene_change":false,"location":null,"tracker_updates":[{"npc":"alice","key":"trust","delta":-3}]}"""
+        )
+
+        val variant = orchestrator(fake).executeTurn(campaignId, "insult alice") {}
+
+        assertTrue(variant.stageEvents.any { it == "tracker: trust -3 applied to alice" })
+        // Agency runs because a tracker update happened; that is recorded too.
+        assertTrue(variant.stageEvents.any { it.startsWith("agency: run") })
+    }
+
+    @Test
+    fun `old turn files without stageEvents still deserialize`() {
+        val turnsDir = File(filesDir, "campaigns/$campaignId/turns")
+        turnsDir.mkdirs()
+        // Pre-phase-6 turn file: no stageEvents key anywhere.
+        File(turnsDir, "0.json").writeText(
+            """
+            {
+              "index": 0,
+              "playerInput": "legacy input",
+              "variants": [
+                {
+                  "id": "v-legacy",
+                  "synopsis": "legacy synopsis",
+                  "sceneOutput": "legacy prose",
+                  "interrupted": false,
+                  "timestamp": 1000
+                }
+              ],
+              "createdAt": 1000
+            }
+            """.trimIndent()
+        )
+
+        val loaded = turns.loadTurn(campaignId, 0)
+        assertNotNull(loaded)
+        assertEquals("legacy input", loaded!!.playerInput)
+        assertTrue(loaded.variants.first().stageEvents.isEmpty())
+    }
+
     @Test
     fun `malformed router JSON falls back to no check`() = runBlocking {
         val fake = FakeAiCaller(routerJson = "{{{garbage")

@@ -93,6 +93,16 @@ fun StageDetailsBottomSheet(
                 )
             }
 
+            // Pipeline events — transparency into fallbacks and failures.
+            DetailSection(
+                title = "Pipeline Events",
+                content = if (variant.stageEvents.isEmpty()) {
+                    "All stages completed cleanly."
+                } else {
+                    variant.stageEvents.joinToString("\n")
+                }
+            )
+
             // Interrupted flag
             if (variant.interrupted) {
                 Box(

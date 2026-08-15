@@ -61,6 +61,10 @@ class PipelineOrchestrator(
         val campaign = campaignStorage.load(campaignId)
             ?: error("Campaign $campaignId not found")
 
+        // Terse one-line transparency log, stored on the saved variant so the
+        // stage-details sheet can explain fallbacks instead of staying silent.
+        val stageEvents = mutableListOf<String>()
+
         val existingIndices = turnStorage.listTurnIndices(campaignId)
         val turnIndex = targetTurnIndex ?: ((existingIndices.maxOrNull() ?: -1) + 1)
         val allTurns = existingIndices
@@ -75,7 +79,10 @@ class PipelineOrchestrator(
         // ---- 2. Router ------------------------------------------------------
         val routerDecision = runCatching {
             routerStage.execute(playerInput, campaign.sceneState)
-        }.getOrNull()
+        }.getOrElse { t ->
+            stageEvents += "router: fallback used (${t.message ?: t.javaClass.simpleName})"
+            null
+        }
 
         // ---- 3. Mechanics (pure code, cannot fail on the model) -------------
         val mechanicResults: List<MechanicResult> =
@@ -96,11 +103,20 @@ class PipelineOrchestrator(
                 mechanicResults = mechanicResults,
                 retrievedMemories = preRetrieval
             )
-        }.getOrElse {
+        }.getOrElse { t ->
+            stageEvents += "plot: fallback used (${t.message ?: t.javaClass.simpleName})"
             dev.diegesis.app.data.model.PlotOutput(
-                synopsis = "The moment stretches; the situation stays tense.",
+                synopsis = PlotStage.FALLBACK_SYNOPSIS,
                 present_npcs = campaign.sceneState.presentNpcIds
             )
+        }
+
+        // The stage falls back internally on parse failure (per pipeline.md);
+        // detect that via the documented sentinel synopsis so it is visible too.
+        if (plotOutput.synopsis == PlotStage.FALLBACK_SYNOPSIS &&
+            stageEvents.none { it.startsWith("plot:") }
+        ) {
+            stageEvents += "plot: fallback used (json parse failed)"
         }
 
         // present_npcs is authoritative for the new scene; an empty list from a
@@ -113,12 +129,15 @@ class PipelineOrchestrator(
             plotOutput.tracker_updates.isNotEmpty()
 
         if (agencyShouldRun) {
+            stageEvents += "agency: run for ${presentNpcIds.size} npc(s)"
             presentNpcIds.forEach { npcId ->
                 runCatching {
                     val npc = npcStorage.load(campaignId, npcId) ?: return@runCatching
                     val witnessed = witnessedTurnsFor(npcId, allTurns)
                     val updated = agencyStage.updateNpcAgency(npc, witnessed)
                     npcStorage.save(campaignId, npc.copy(agency = updated))
+                }.onFailure { t ->
+                    stageEvents += "agency: update failed for $npcId (${t.message ?: t.javaClass.simpleName})"
                 }
             }
         }
@@ -155,8 +174,12 @@ class PipelineOrchestrator(
             // partial prose is worth persisting.
             if (t is CancellationException) throw t
             interrupted = true
+            stageEvents += "scene: interrupted (${t.message ?: t.javaClass.simpleName})"
         }
-        if (prose.isBlank()) interrupted = true
+        if (prose.isBlank() && !interrupted) {
+            interrupted = true
+            stageEvents += "scene: interrupted (empty output)"
+        }
 
         val sceneOutput = prose.toString()
 
@@ -168,20 +191,34 @@ class PipelineOrchestrator(
                 sceneOutput = sceneOutput,
                 turnIndex = turnIndex
             )
-        }.getOrDefault(emptyList())
+        }.getOrElse { t ->
+            stageEvents += "memory: extraction failed (${t.message ?: t.javaClass.simpleName})"
+            emptyList()
+        }
 
         extracted.forEach { entry ->
             runCatching { memoryStorage.appendMemory(campaignId, entry) }
+                .onFailure { t ->
+                    stageEvents += "memory: append failed (${t.message ?: t.javaClass.simpleName})"
+                }
         }
 
         // ---- 9. Tracker updates + scene state -------------------------------
         plotOutput.tracker_updates.forEach { update ->
             runCatching {
-                val npc = npcStorage.load(campaignId, update.npc) ?: return@runCatching
+                val npc = npcStorage.load(campaignId, update.npc)
+                if (npc == null) {
+                    stageEvents += "tracker: update skipped, unknown npc ${update.npc}"
+                    return@runCatching
+                }
                 val current = npc.trackers[update.key] ?: 0
                 val merged = npc.trackers.toMutableMap()
                 merged[update.key] = current + update.delta
                 npcStorage.save(campaignId, npc.copy(trackers = merged))
+                val sign = if (update.delta >= 0) "+" else ""
+                stageEvents += "tracker: ${update.key} $sign${update.delta} applied to ${update.npc}"
+            }.onFailure { t ->
+                stageEvents += "tracker: update failed for ${update.npc} (${t.message ?: t.javaClass.simpleName})"
             }
         }
 
@@ -207,7 +244,8 @@ class PipelineOrchestrator(
             routerDecision = routerDecision,
             presentNpcIds = presentNpcIds,
             mechanicResults = mechanicResults,
-            interrupted = interrupted
+            interrupted = interrupted,
+            stageEvents = stageEvents.toList()
         )
 
         runCatching {
