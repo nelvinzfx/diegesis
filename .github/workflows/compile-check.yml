@@ -33,7 +33,7 @@ jobs:
       - name: Compile and test
         run: |
           chmod +x gradlew
-          ./gradlew :ai:compileDebugKotlin :ai:testDebugUnitTest :app:assembleDebug \
+          ./gradlew :ai:compileDebugKotlin :ai:testDebugUnitTest :app:testDebugUnitTest :app:assembleDebug \
             --no-daemon --stacktrace
 
       - name: Upload build report on failure
