@@ -39,7 +39,7 @@ class MarkdownParserTest {
         val markdown = """
             ```
             val x = 10
-            fun test() 
+            fun test() {}
             ```
         """.trimIndent()
         val blocks = parseMarkdownBlocks(markdown)
