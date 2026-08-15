@@ -37,4 +37,18 @@ class LanguageDirectiveTest {
         val out = DefaultAiCaller.languageDirective("sys   \n", "English")
         assertFalse(out.contains("   \n\n"))
     }
+
+    @Test
+    fun `scene directive fixes narration language but frees dialogue to background`() {
+        val out = DefaultAiCaller.sceneLanguageDirective("narrator", "Bahasa Indonesia")
+        assertTrue(out.contains("Write all narration and prose in Bahasa Indonesia"))
+        assertTrue(out.contains("honor each character's background"))
+        assertTrue(out.contains("American character speaks English"))
+        assertTrue(out.contains("bilingual or fluent in Bahasa Indonesia"))
+    }
+
+    @Test
+    fun `scene directive with blank language is a no-op`() {
+        assertEquals("narrator", DefaultAiCaller.sceneLanguageDirective("narrator", ""))
+    }
 }

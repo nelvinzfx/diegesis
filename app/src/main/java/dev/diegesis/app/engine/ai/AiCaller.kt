@@ -106,7 +106,7 @@ class DefaultAiCaller(
             return flow { emit(MISSING_KEY_MESSAGE) }
         }
         val messages = listOf(
-            UIMessage.system(withLanguageDirective(systemPrompt)),
+            UIMessage.system(withSceneLanguageDirective(systemPrompt)),
             UIMessage.user(userPrompt),
         )
         val params = TextGenerationParams(
@@ -196,6 +196,9 @@ class DefaultAiCaller(
     private fun withLanguageDirective(prompt: String): String =
         languageDirective(prompt, language)
 
+    private fun withSceneLanguageDirective(prompt: String): String =
+        sceneLanguageDirective(prompt, language)
+
     private fun openAiSetting() = ProviderSetting.OpenAI(
         name = "Diegesis think/write (openai-compat)",
         apiKey = openaiApiKey,
@@ -230,6 +233,20 @@ class DefaultAiCaller(
             if (language.isBlank()) return prompt
             return prompt.trimEnd() + "\n\nIMPORTANT: Write all narration, dialogue, and prose in " +
                 language + ", regardless of the language of any character sheets or source material."
+        }
+
+        /**
+         * Scene-stage language rule: narration always follows the story
+         * language, but dialogue follows each character's own background —
+         * an American character speaks English even in an Indonesian story,
+         * unless their sheet marks them bilingual/fluent in the story language.
+         */
+        fun sceneLanguageDirective(prompt: String, language: String): String {
+            if (language.isBlank()) return prompt
+            return prompt.trimEnd() + "\n\nIMPORTANT: Write all narration and prose in " + language + ". " +
+                "For dialogue, honor each character's background: a character speaks the language that fits " +
+                "their origin and sheet (for example an American character speaks English), unless their sheet " +
+                "says they are bilingual or fluent in " + language + " — then they speak " + language + "."
         }
 
         /**
