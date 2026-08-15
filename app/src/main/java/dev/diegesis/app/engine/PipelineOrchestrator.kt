@@ -21,6 +21,7 @@ import dev.diegesis.app.engine.stages.RouterStage
 import dev.diegesis.app.engine.stages.SceneStage
 import java.util.UUID
 import kotlin.random.Random
+import kotlinx.coroutines.CancellationException
 
 /**
  * Orchestrates the full turn execution pipeline.
@@ -148,6 +149,11 @@ class PipelineOrchestrator(
                 onChunk(chunk)
             }
         } catch (t: Throwable) {
+            // Cancellation must abort the turn, not masquerade as a completed
+            // one: rethrow so no state is written by a cancelled pipeline.
+            // The caller (StoryViewModel) owns the decision of whether the
+            // partial prose is worth persisting.
+            if (t is CancellationException) throw t
             interrupted = true
         }
         if (prose.isBlank()) interrupted = true
@@ -206,8 +212,8 @@ class PipelineOrchestrator(
 
         runCatching {
             val existing = turnStorage.loadTurn(campaignId, turnIndex)
-            if (existing == null) {
-                turnStorage.saveTurn(
+            when {
+                existing == null -> turnStorage.saveTurn(
                     campaignId,
                     Turn(
                         index = turnIndex,
@@ -215,8 +221,27 @@ class PipelineOrchestrator(
                         variants = listOf(variant)
                     )
                 )
-            } else {
-                turnStorage.appendVariant(campaignId, turnIndex, variant)
+
+                // Explicit regenerate: appending a variant is the point.
+                targetTurnIndex != null ->
+                    turnStorage.appendVariant(campaignId, turnIndex, variant)
+
+                // New-turn send that lost the index race: a concurrent
+                // pipeline (e.g. an orphaned ViewModel's in-flight job)
+                // claimed this index while we were streaming. Never stack a
+                // send's output as a variant on someone else's turn — claim
+                // the next free index instead.
+                else -> {
+                    val nextFree = (turnStorage.listTurnIndices(campaignId).maxOrNull() ?: -1) + 1
+                    turnStorage.saveTurn(
+                        campaignId,
+                        Turn(
+                            index = nextFree,
+                            playerInput = playerInput,
+                            variants = listOf(variant)
+                        )
+                    )
+                }
             }
         }
 

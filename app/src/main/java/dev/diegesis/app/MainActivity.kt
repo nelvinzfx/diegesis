@@ -156,6 +156,16 @@ fun DiegesisApp(
                     turnStorage = turnStorage
                 )
             }
+            // StoryViewModel is constructed by hand inside remember {}, so it
+            // is never attached to a ViewModelStore and nothing cancels its
+            // coroutine scope when this branch leaves composition or the
+            // aiCaller key churns after a settings reload. Without this,
+            // an in-flight generation keeps running as an orphan and races a
+            // freshly created ViewModel for the same turn index (which used
+            // to surface as extra swipeable variants on one turn).
+            DisposableEffect(viewModel) {
+                onDispose { viewModel.stopGeneration() }
+            }
             StoryScreen(
                 viewModel = viewModel,
                 onBack = { currentScreen = Screen.CampaignList },
