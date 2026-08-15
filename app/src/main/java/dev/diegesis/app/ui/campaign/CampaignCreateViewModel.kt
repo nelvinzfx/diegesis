@@ -6,6 +6,7 @@ import dev.diegesis.app.data.model.Campaign
 import dev.diegesis.app.data.model.SceneState
 import dev.diegesis.app.data.storage.CampaignStorage
 import dev.diegesis.app.engine.ai.AiCaller
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -28,7 +29,8 @@ data class CampaignCreateUiState(
 class CampaignCreateViewModel(
     private val storage: CampaignStorage,
     private val aiCaller: AiCaller,
-    coroutineScope: CoroutineScope? = null
+    coroutineScope: CoroutineScope? = null,
+    private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO
 ) : ViewModel() {
     private val scope = coroutineScope ?: viewModelScope
 
@@ -120,7 +122,7 @@ Generate a session plan with a 3-act structure.
                     sceneState = SceneState(location = state.initialLocation)
                 )
 
-                withContext(Dispatchers.IO) {
+                withContext(ioDispatcher) {
                     storage.save(campaign)
                 }
 

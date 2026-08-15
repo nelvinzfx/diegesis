@@ -45,7 +45,8 @@ class CampaignCreateViewModelTest {
         viewModel = CampaignCreateViewModel(
             storage = storage,
             aiCaller = aiCaller,
-            coroutineScope = CoroutineScope(Dispatchers.Unconfined)
+            coroutineScope = CoroutineScope(Dispatchers.Unconfined),
+            ioDispatcher = Dispatchers.Unconfined
         )
     }
 

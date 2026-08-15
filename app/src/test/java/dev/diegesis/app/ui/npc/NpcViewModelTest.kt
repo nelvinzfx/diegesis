@@ -27,7 +27,8 @@ class NpcViewModelTest {
         storage = NpcStorage(tempDir)
         viewModel = NpcViewModel(
             storage = storage,
-            coroutineScope = CoroutineScope(Dispatchers.Unconfined)
+            coroutineScope = CoroutineScope(Dispatchers.Unconfined),
+            ioDispatcher = Dispatchers.Unconfined
         )
     }
 

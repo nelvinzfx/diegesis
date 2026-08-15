@@ -26,7 +26,8 @@ class CampaignListViewModelTest {
         storage = CampaignStorage(tempDir)
         viewModel = CampaignListViewModel(
             storage = storage,
-            coroutineScope = CoroutineScope(Dispatchers.Unconfined)
+            coroutineScope = CoroutineScope(Dispatchers.Unconfined),
+            ioDispatcher = Dispatchers.Unconfined
         )
     }
 

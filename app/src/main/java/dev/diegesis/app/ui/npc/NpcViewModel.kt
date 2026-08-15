@@ -6,6 +6,7 @@ import dev.diegesis.app.data.importer.CharacterCardImporter
 import dev.diegesis.app.data.model.Npc
 import dev.diegesis.app.data.model.NpcAgency
 import dev.diegesis.app.data.storage.NpcStorage
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -26,7 +27,8 @@ data class NpcUiState(
 
 class NpcViewModel(
     private val storage: NpcStorage,
-    coroutineScope: CoroutineScope? = null
+    coroutineScope: CoroutineScope? = null,
+    private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO
 ) : ViewModel() {
     private val scope = coroutineScope ?: viewModelScope
 
@@ -41,11 +43,11 @@ class NpcViewModel(
                 errorMessage = null
             )
             try {
-                val npcIds = withContext(Dispatchers.IO) {
+                val npcIds = withContext(ioDispatcher) {
                     storage.list(campaignId)
                 }
                 val npcs = npcIds.mapNotNull { id ->
-                    withContext(Dispatchers.IO) {
+                    withContext(ioDispatcher) {
                         storage.load(campaignId, id)
                     }
                 }
@@ -93,7 +95,7 @@ class NpcViewModel(
 
         scope.launch {
             try {
-                withContext(Dispatchers.IO) {
+                withContext(ioDispatcher) {
                     storage.save(_uiState.value.campaignId, npc)
                 }
                 _uiState.value = _uiState.value.copy(editingNpc = null)
@@ -109,7 +111,7 @@ class NpcViewModel(
     fun deleteNpc(npcId: String) {
         scope.launch {
             try {
-                withContext(Dispatchers.IO) {
+                withContext(ioDispatcher) {
                     storage.delete(_uiState.value.campaignId, npcId)
                 }
                 loadNpcs(_uiState.value.campaignId)
@@ -137,7 +139,7 @@ class NpcViewModel(
         scope.launch {
             try {
                 val npcId = UUID.randomUUID().toString()
-                val npc = withContext(Dispatchers.IO) {
+                val npc = withContext(ioDispatcher) {
                     CharacterCardImporter.fromJson(jsonString, npcId)
                 }
                 _uiState.value = _uiState.value.copy(

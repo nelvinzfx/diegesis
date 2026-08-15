@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import dev.diegesis.app.data.model.AppSettings
 import dev.diegesis.app.data.model.StageModelSelection
 import dev.diegesis.app.data.storage.SettingsStorage
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -28,7 +29,8 @@ data class SettingsUiState(
 
 class SettingsViewModel(
     private val storage: SettingsStorage,
-    coroutineScope: CoroutineScope? = null
+    coroutineScope: CoroutineScope? = null,
+    private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO
 ) : ViewModel() {
     private val scope = coroutineScope ?: viewModelScope
 
@@ -43,7 +45,7 @@ class SettingsViewModel(
         scope.launch {
             _uiState.value = _uiState.value.copy(isLoading = true)
             try {
-                val settings = withContext(Dispatchers.IO) {
+                val settings = withContext(ioDispatcher) {
                     storage.load()
                 }
                 _uiState.value = _uiState.value.copy(
@@ -105,7 +107,7 @@ class SettingsViewModel(
                     writeModel = StageModelSelection(state.writeProvider, state.writeModel.trim())
                 )
 
-                withContext(Dispatchers.IO) {
+                withContext(ioDispatcher) {
                     storage.save(settings)
                 }
 

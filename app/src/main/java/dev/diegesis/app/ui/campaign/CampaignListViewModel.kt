@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dev.diegesis.app.data.model.Campaign
 import dev.diegesis.app.data.storage.CampaignStorage
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -20,7 +21,8 @@ data class CampaignListUiState(
 
 class CampaignListViewModel(
     private val storage: CampaignStorage,
-    coroutineScope: CoroutineScope? = null
+    coroutineScope: CoroutineScope? = null,
+    private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO
 ) : ViewModel() {
     private val scope = coroutineScope ?: viewModelScope
 
@@ -35,11 +37,11 @@ class CampaignListViewModel(
         scope.launch {
             _uiState.value = _uiState.value.copy(isLoading = true, errorMessage = null)
             try {
-                val campaignIds = withContext(Dispatchers.IO) {
+                val campaignIds = withContext(ioDispatcher) {
                     storage.list()
                 }
                 val campaigns = campaignIds.mapNotNull { id ->
-                    withContext(Dispatchers.IO) {
+                    withContext(ioDispatcher) {
                         storage.load(id)
                     }
                 }.sortedByDescending { it.updatedAt }
@@ -60,7 +62,7 @@ class CampaignListViewModel(
     fun deleteCampaign(campaignId: String) {
         scope.launch {
             try {
-                withContext(Dispatchers.IO) {
+                withContext(ioDispatcher) {
                     storage.delete(campaignId)
                 }
                 loadCampaigns()

@@ -27,7 +27,8 @@ class SettingsViewModelTest {
         storage = SettingsStorage(tempDir)
         viewModel = SettingsViewModel(
             storage = storage,
-            coroutineScope = CoroutineScope(Dispatchers.Unconfined)
+            coroutineScope = CoroutineScope(Dispatchers.Unconfined),
+            ioDispatcher = Dispatchers.Unconfined
         )
     }
 
