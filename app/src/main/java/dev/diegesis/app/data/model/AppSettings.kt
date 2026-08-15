@@ -8,7 +8,10 @@ data class AppSettings(
     val writeModel: StageModelSelection = StageModelSelection("anthropic", "claude-3-5-sonnet-20241022"),
     val openaiBaseUrl: String = "https://api.openai.com/v1",
     val openaiApiKey: String = "",
-    val anthropicApiKey: String = ""
+    val anthropicApiKey: String = "",
+    // Story output language. The writer follows this even when character
+    // cards or other source material are in another language.
+    val language: String = "English"
 )
 
 @Serializable

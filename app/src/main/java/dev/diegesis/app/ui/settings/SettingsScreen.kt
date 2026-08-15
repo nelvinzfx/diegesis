@@ -177,6 +177,50 @@ fun SettingsScreen(
                     modifier = Modifier.fillMaxWidth()
                 )
 
+                HorizontalDivider(color = DiegesisColors.Border, modifier = Modifier.padding(vertical = 8.dp))
+
+                // Story Language Section
+                Text(
+                    text = "Story Language",
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = DiegesisColors.Text
+                )
+
+                Text(
+                    text = "The writer always uses this language, even for English character cards.",
+                    fontSize = 12.sp,
+                    color = DiegesisColors.TextDim
+                )
+
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    FilterChip(
+                        selected = uiState.language == "English",
+                        onClick = { viewModel.updateLanguage("English") },
+                        label = { Text("English") },
+                        colors = FilterChipDefaults.filterChipColors(
+                            selectedContainerColor = DiegesisColors.Amber,
+                            selectedLabelColor = DiegesisColors.Bg,
+                            containerColor = DiegesisColors.Surface2,
+                            labelColor = DiegesisColors.Text
+                        )
+                    )
+                    FilterChip(
+                        selected = uiState.language == "Bahasa Indonesia",
+                        onClick = { viewModel.updateLanguage("Bahasa Indonesia") },
+                        label = { Text("Bahasa Indonesia") },
+                        colors = FilterChipDefaults.filterChipColors(
+                            selectedContainerColor = DiegesisColors.Amber,
+                            selectedLabelColor = DiegesisColors.Bg,
+                            containerColor = DiegesisColors.Surface2,
+                            labelColor = DiegesisColors.Text
+                        )
+                    )
+                }
+
                 // Save Button
                 Button(
                     onClick = { viewModel.saveSettings() },

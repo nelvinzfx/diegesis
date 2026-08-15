@@ -42,6 +42,7 @@ class SettingsViewModelTest {
         assertEquals("gpt-4o-mini", state.thinkModel)
         assertEquals("anthropic", state.writeProvider)
         assertEquals("claude-3-5-sonnet-20241022", state.writeModel)
+        assertEquals("English", state.language)
         assertFalse(state.isLoading)
     }
 
@@ -119,6 +120,7 @@ class SettingsViewModelTest {
         viewModel.updateThinkModel("claude-3-5-haiku-20241022")
         viewModel.updateWriteProvider("openai-compat")
         viewModel.updateWriteModel("gpt-4o")
+        viewModel.updateLanguage("Bahasa Indonesia")
 
         viewModel.saveSettings()
 
@@ -130,6 +132,7 @@ class SettingsViewModelTest {
         assertEquals("claude-3-5-haiku-20241022", saved.thinkModel.model)
         assertEquals("openai-compat", saved.writeModel.provider)
         assertEquals("gpt-4o", saved.writeModel.model)
+        assertEquals("Bahasa Indonesia", saved.language)
         assertNotNull(viewModel.uiState.value.successMessage)
     }
 }

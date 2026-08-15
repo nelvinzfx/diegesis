@@ -22,6 +22,7 @@ data class SettingsUiState(
     val thinkModel: String = "gpt-4o-mini",
     val writeProvider: String = "anthropic",
     val writeModel: String = "claude-3-5-sonnet-20241022",
+    val language: String = "English",
     val isLoading: Boolean = false,
     val successMessage: String? = null,
     val errorMessage: String? = null
@@ -56,6 +57,7 @@ class SettingsViewModel(
                     thinkModel = settings.thinkModel.model,
                     writeProvider = settings.writeModel.provider,
                     writeModel = settings.writeModel.model,
+                    language = settings.language,
                     isLoading = false
                 )
             } catch (e: Exception) {
@@ -95,6 +97,10 @@ class SettingsViewModel(
         _uiState.value = _uiState.value.copy(writeModel = model)
     }
 
+    fun updateLanguage(language: String) {
+        _uiState.value = _uiState.value.copy(language = language)
+    }
+
     fun saveSettings() {
         scope.launch {
             try {
@@ -104,7 +110,8 @@ class SettingsViewModel(
                     openaiApiKey = state.openaiApiKey.trim(),
                     anthropicApiKey = state.anthropicApiKey.trim(),
                     thinkModel = StageModelSelection(state.thinkProvider, state.thinkModel.trim()),
-                    writeModel = StageModelSelection(state.writeProvider, state.writeModel.trim())
+                    writeModel = StageModelSelection(state.writeProvider, state.writeModel.trim()),
+                    language = state.language
                 )
 
                 withContext(ioDispatcher) {

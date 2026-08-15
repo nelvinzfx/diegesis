@@ -67,6 +67,7 @@ class DefaultAiCaller(
     private val openaiBaseUrl: String,
     private val openaiApiKey: String,
     private val anthropicApiKey: String,
+    private val language: String = "English",
     private val client: OkHttpClient,
 ) : AiCaller {
 
@@ -105,7 +106,7 @@ class DefaultAiCaller(
             return flow { emit(MISSING_KEY_MESSAGE) }
         }
         val messages = listOf(
-            UIMessage.system(systemPrompt),
+            UIMessage.system(withLanguageDirective(systemPrompt)),
             UIMessage.user(userPrompt),
         )
         val params = TextGenerationParams(
@@ -139,7 +140,7 @@ class DefaultAiCaller(
             return flow { emit(MISSING_KEY_MESSAGE) }
         }
         val messages = listOf(
-            UIMessage.system(systemPrompt),
+            UIMessage.system(withLanguageDirective(systemPrompt)),
             UIMessage.user(userPrompt),
         )
         val params = TextGenerationParams(
@@ -192,6 +193,9 @@ class DefaultAiCaller(
     private fun keyForProvider(provider: String): String =
         if (provider == PROVIDER_ANTHROPIC) anthropicApiKey else openaiApiKey
 
+    private fun withLanguageDirective(prompt: String): String =
+        languageDirective(prompt, language)
+
     private fun openAiSetting() = ProviderSetting.OpenAI(
         name = "Diegesis think/write (openai-compat)",
         apiKey = openaiApiKey,
@@ -216,6 +220,17 @@ class DefaultAiCaller(
         const val PROVIDER_OPENAI = "openai-compat"
         const val PROVIDER_ANTHROPIC = "anthropic"
         const val MISSING_KEY_MESSAGE = "Set your API key in Settings first."
+
+        /**
+         * Appends the output-language directive to a system prompt. Applies
+         * to every non-empty language, English included, so the writer's
+         * language never silently follows the character cards instead.
+         */
+        fun languageDirective(prompt: String, language: String): String {
+            if (language.isBlank()) return prompt
+            return prompt.trimEnd() + "\n\nIMPORTANT: Write all narration, dialogue, and prose in " +
+                language + ", regardless of the language of any character sheets or source material."
+        }
 
         /**
          * Models fence JSON in ```json blocks even when told not to. Strip the

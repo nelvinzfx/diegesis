@@ -92,6 +92,7 @@ fun DiegesisApp(
             openaiBaseUrl = settings.openaiBaseUrl,
             openaiApiKey = settings.openaiApiKey,
             anthropicApiKey = settings.anthropicApiKey,
+            language = settings.language,
             client = httpClient
         )
     }
