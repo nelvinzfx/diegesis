@@ -1,6 +1,7 @@
 package dev.diegesis.app.ui.story
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -103,7 +104,8 @@ fun StoryScreen(
                                 sceneOutput = uiState.streamingText,
                                 interrupted = false
                             ),
-                            isStreaming = true
+                            isStreaming = true,
+                            pipelineProgressLines = uiState.pipelineProgressLines
                         )
                     }
                 }
@@ -259,6 +261,7 @@ fun AssistantTurnItem(
     isStreaming: Boolean,
     variantIndex: Int = 0,
     totalVariants: Int = 1,
+    pipelineProgressLines: List<String> = emptyList(),
     onSwitchVariant: (Int) -> Unit = {},
     onRegenerate: () -> Unit = {},
     onEditAndResend: () -> Unit = {},
@@ -281,6 +284,11 @@ fun AssistantTurnItem(
             ),
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
+        // Pipeline progress card (live during generation)
+        if (isStreaming && pipelineProgressLines.isNotEmpty()) {
+            PipelineProgressCard(lines = pipelineProgressLines)
+        }
+
         // Mechanics badge
         if (variant.mechanicResults.isNotEmpty()) {
             variant.mechanicResults.forEach { result ->
@@ -518,6 +526,75 @@ fun TurnContextMenu(
             }
         }
     )
+}
+
+@Composable
+fun PipelineProgressCard(lines: List<String>) {
+    var expanded by remember { mutableStateOf(false) }
+    val hasSceneStarted = lines.any { it.startsWith("scene:") }
+
+    LaunchedEffect(hasSceneStarted) {
+        if (hasSceneStarted) expanded = false
+    }
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(DiegesisColors.Surface2, RoundedCornerShape(12.dp))
+            .border(1.dp, DiegesisColors.Border, RoundedCornerShape(12.dp))
+            .clickable { expanded = !expanded }
+            .padding(12.dp),
+        verticalArrangement = Arrangement.spacedBy(6.dp)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = "Working…",
+                color = DiegesisColors.Text,
+                fontSize = 13.sp,
+                fontWeight = FontWeight.Medium
+            )
+            Text(
+                text = if (expanded) "›" else "‹",
+                color = DiegesisColors.TextDim,
+                fontSize = 16.sp
+            )
+        }
+
+        if (expanded) {
+            lines.forEachIndexed { index, line ->
+                val isRunning = index == lines.lastIndex
+                ProgressLine(line = line, isRunning = isRunning)
+            }
+        } else {
+            lines.lastOrNull()?.let { latest ->
+                ProgressLine(line = latest, isRunning = true)
+            }
+        }
+    }
+}
+
+@Composable
+private fun ProgressLine(line: String, isRunning: Boolean) {
+    Row(
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            text = if (isRunning) "▲" else "✓",
+            color = if (isRunning) DiegesisColors.Amber else DiegesisColors.TextFaint,
+            fontSize = 11.sp
+        )
+        Text(
+            text = line,
+            color = if (isRunning) DiegesisColors.TextDim else DiegesisColors.TextFaint,
+            fontSize = 12.sp,
+            fontFamily = FontFamily.Monospace
+        )
+    }
 }
 
 @Composable

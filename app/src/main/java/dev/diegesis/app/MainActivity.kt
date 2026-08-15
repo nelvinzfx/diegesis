@@ -157,6 +157,7 @@ fun DiegesisApp(
                     memoryStorage = memoryStorage,
                     contextWindowTokens = settings.contextWindowTokens,
                     writeMaxTokens = settings.writeMaxTokens
+                    // onPipelineEvent wired via executeTurn's lambda in StoryViewModel
                 )
                 StoryViewModel(
                     campaignId = screen.campaignId,

@@ -28,7 +28,9 @@ data class StoryUiState(
     val pendingPlayerInput: String? = null,
     val selectedVariantIndices: Map<Int, Int> = emptyMap(), // turnIndex -> variantIndex
     val activeStageDetailsTurn: Int? = null,
-    val errorMessage: String? = null
+    val errorMessage: String? = null,
+    // Live pipeline progress: collected lines from the orchestrator callback.
+    val pipelineProgressLines: List<String> = emptyList()
 )
 
 class StoryViewModel(
@@ -70,7 +72,8 @@ class StoryViewModel(
                 isStreaming = true,
                 streamingText = "",
                 pendingPlayerInput = text,
-                errorMessage = null
+                errorMessage = null,
+                pipelineProgressLines = emptyList()
             )
         }
 
@@ -80,6 +83,11 @@ class StoryViewModel(
                     campaignId = campaignId,
                     playerInput = text,
                     targetTurnIndex = null,
+                    onPipelineEvent = { line ->
+                        _uiState.update {
+                            it.copy(pipelineProgressLines = it.pipelineProgressLines + line)
+                        }
+                    },
                     onChunk = { chunk ->
                         _uiState.update { it.copy(streamingText = it.streamingText + chunk) }
                     }
@@ -87,7 +95,12 @@ class StoryViewModel(
                 loadCampaign()
                 loadTurns()
                 _uiState.update {
-                    it.copy(isStreaming = false, streamingText = "", pendingPlayerInput = null)
+                    it.copy(
+                        isStreaming = false,
+                        streamingText = "",
+                        pendingPlayerInput = null,
+                        pipelineProgressLines = emptyList()
+                    )
                 }
             } catch (ce: CancellationException) {
                 // User pressed stop: keep whatever prose arrived as an
@@ -97,7 +110,12 @@ class StoryViewModel(
                 loadCampaign()
                 loadTurns()
                 _uiState.update {
-                    it.copy(isStreaming = false, streamingText = "", pendingPlayerInput = null)
+                    it.copy(
+                        isStreaming = false,
+                        streamingText = "",
+                        pendingPlayerInput = null,
+                        pipelineProgressLines = emptyList()
+                    )
                 }
                 throw ce
             } catch (e: Exception) {
@@ -106,7 +124,8 @@ class StoryViewModel(
                         isStreaming = false,
                         streamingText = "",
                         pendingPlayerInput = null,
-                        errorMessage = "Generation failed: ${e.message}"
+                        errorMessage = "Generation failed: ${e.message}",
+                        pipelineProgressLines = emptyList()
                     )
                 }
             } finally {
@@ -150,7 +169,14 @@ class StoryViewModel(
         val turn = _uiState.value.turns.find { it.index == turnIndex } ?: return
         if (_uiState.value.isStreaming) return
 
-        _uiState.update { it.copy(isStreaming = true, streamingText = "", errorMessage = null) }
+        _uiState.update {
+            it.copy(
+                isStreaming = true,
+                streamingText = "",
+                errorMessage = null,
+                pipelineProgressLines = emptyList()
+            )
+        }
 
         activeGenerationJob = scope.launch {
             try {
@@ -158,6 +184,11 @@ class StoryViewModel(
                     campaignId = campaignId,
                     playerInput = turn.playerInput,
                     targetTurnIndex = turnIndex,
+                    onPipelineEvent = { line ->
+                        _uiState.update {
+                            it.copy(pipelineProgressLines = it.pipelineProgressLines + line)
+                        }
+                    },
                     onChunk = { chunk ->
                         _uiState.update { it.copy(streamingText = it.streamingText + chunk) }
                     }
@@ -171,20 +202,28 @@ class StoryViewModel(
                     it.copy(
                         isStreaming = false,
                         streamingText = "",
-                        selectedVariantIndices = it.selectedVariantIndices + (turnIndex to newVariantIndex)
+                        selectedVariantIndices = it.selectedVariantIndices + (turnIndex to newVariantIndex),
+                        pipelineProgressLines = emptyList()
                     )
                 }
             } catch (ce: CancellationException) {
                 loadCampaign()
                 loadTurns()
-                _uiState.update { it.copy(isStreaming = false, streamingText = "") }
+                _uiState.update {
+                    it.copy(
+                        isStreaming = false,
+                        streamingText = "",
+                        pipelineProgressLines = emptyList()
+                    )
+                }
                 throw ce
             } catch (e: Exception) {
                 _uiState.update {
                     it.copy(
                         isStreaming = false,
                         streamingText = "",
-                        errorMessage = "Regeneration failed: ${e.message}"
+                        errorMessage = "Regeneration failed: ${e.message}",
+                        pipelineProgressLines = emptyList()
                     )
                 }
             } finally {

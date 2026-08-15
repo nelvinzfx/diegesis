@@ -580,6 +580,82 @@ class PipelineOrchestratorTest {
         assertTrue(variant.interrupted)
     }
 
+    // ---- pipeline events callback (live progress) -------------------------
+
+    @Test
+    fun `onPipelineEvent receives stage boundary events on happy path`() = runBlocking {
+        val fake = FakeAiCaller()
+        val events = mutableListOf<String>()
+        val orch = PipelineOrchestrator(
+            aiCaller = fake,
+            campaignStorage = campaigns,
+            npcStorage = npcs,
+            turnStorage = turns,
+            memoryStorage = memories,
+            random = Random(7),
+            onPipelineEvent = { events += it }
+        )
+
+        orch.executeTurn(campaignId, "look around") {}
+
+        assertEquals(
+            listOf(
+                "router: deciding checks…",
+                "router: done",
+                "plot: generating turn plan…",
+                "plot: done",
+                "scene: streaming…",
+                "memory: extracting…",
+                "memory: done",
+            ),
+            events
+        )
+    }
+
+    @Test
+    fun `onPipelineEvent null is safe`() = runBlocking {
+        val fake = FakeAiCaller()
+        val orch = PipelineOrchestrator(
+            aiCaller = fake,
+            campaignStorage = campaigns,
+            npcStorage = npcs,
+            turnStorage = turns,
+            memoryStorage = memories,
+            random = Random(7),
+            onPipelineEvent = null
+        )
+        val variant = orch.executeTurn(campaignId, "test") {}
+        assertFalse(variant.interrupted)
+    }
+
+    @Test
+    fun `onPipelineEvent receives fallback events`() = runBlocking {
+        val fake = FakeAiCaller(plotJson = "garbage")
+        val events = mutableListOf<String>()
+        val orch = PipelineOrchestrator(
+            aiCaller = fake,
+            campaignStorage = campaigns,
+            npcStorage = npcs,
+            turnStorage = turns,
+            memoryStorage = memories,
+            random = Random(7),
+            onPipelineEvent = { events += it }
+        )
+
+        val variant = orch.executeTurn(campaignId, "test") {}
+
+        assertTrue(
+            "expected plot fallback in callback",
+            events.any { it.startsWith("plot: fallback used") }
+        )
+        // Every persisted stageEvents line was also emitted live, in order:
+        // the live log and the Stage Details log read identically.
+        assertEquals(
+            variant.stageEvents,
+            events.filter { it in variant.stageEvents }
+        )
+    }
+
     @Test
     fun `malformed extraction JSON does not fail the turn`() = runBlocking {
         val fake = FakeAiCaller(extractionJson = "nope")

@@ -235,4 +235,28 @@ class StoryViewModelTest {
         viewModel.showStageDetails(null)
         assertNull(viewModel.uiState.value.activeStageDetailsTurn)
     }
+
+    @Test
+    fun `pipeline progress lines are collected during generation`() = runBlocking {
+        val gate = kotlinx.coroutines.CompletableDeferred<Unit>()
+        fakeAi.gate = gate
+
+        viewModel.sendPlayerInput("test")
+
+        // Pipeline is parked, progress lines should be collected.
+        assertTrue(viewModel.uiState.value.isStreaming)
+        assertTrue(
+            "expected progress lines during generation",
+            viewModel.uiState.value.pipelineProgressLines.isNotEmpty()
+        )
+
+        gate.complete(Unit)
+
+        val state = viewModel.uiState.value
+        assertFalse(state.isStreaming)
+        assertTrue(
+            "progress lines should be cleared after completion",
+            state.pipelineProgressLines.isEmpty()
+        )
+    }
 }

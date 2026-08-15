@@ -41,7 +41,11 @@ class PipelineOrchestrator(
     // Context-window enforcement (see docs/pipeline.md + AppSettings).
     // Budget for history+payload = (contextWindowTokens - writeMaxTokens) * 0.8.
     private val contextWindowTokens: Int = 32768,
-    private val writeMaxTokens: Int = 8192
+    private val writeMaxTokens: Int = 8192,
+    // Live progress hook for the UI. Receives every stageEvents line plus
+    // transient stage-boundary lines, so the live log and the persisted
+    // Stage Details log read identically.
+    private val onPipelineEvent: ((String) -> Unit)? = null
 ) {
     private val routerStage = RouterStage(aiCaller)
     private val plotStage = PlotStage(aiCaller)
@@ -61,6 +65,11 @@ class PipelineOrchestrator(
         campaignId: String,
         playerInput: String,
         targetTurnIndex: Int? = null,
+        // Per-call override of the constructor-level progress hook, so a
+        // caller holding a shared orchestrator can still observe one turn.
+        // Declared before onChunk so existing trailing-lambda call sites
+        // keep binding to onChunk unchanged.
+        onPipelineEvent: ((String) -> Unit)? = this.onPipelineEvent,
         onChunk: (String) -> Unit
     ): TurnVariant {
         val campaign = campaignStorage.load(campaignId)
@@ -69,6 +78,13 @@ class PipelineOrchestrator(
         // Terse one-line transparency log, stored on the saved variant so the
         // stage-details sheet can explain fallbacks instead of staying silent.
         val stageEvents = mutableListOf<String>()
+        fun emitProgress(line: String) {
+            onPipelineEvent?.invoke(line)
+        }
+        fun recordEvent(line: String) {
+            stageEvents += line
+            emitProgress(line)
+        }
 
         val existingIndices = turnStorage.listTurnIndices(campaignId)
         val turnIndex = targetTurnIndex ?: ((existingIndices.maxOrNull() ?: -1) + 1)
@@ -82,12 +98,14 @@ class PipelineOrchestrator(
         val preRetrieval = MemoryRetriever.retrieve(playerInput, allMemories)
 
         // ---- 2. Router ------------------------------------------------------
+        emitProgress("router: deciding checks…")
         val routerDecision = runCatching {
             routerStage.execute(playerInput, campaign.sceneState)
         }.getOrElse { t ->
-            stageEvents += "router: fallback used (${t.message ?: t.javaClass.simpleName})"
+            recordEvent("router: fallback used (${t.message ?: t.javaClass.simpleName})")
             null
         }
+        if (routerDecision != null) emitProgress("router: done")
 
         // ---- 3. Mechanics (pure code, cannot fail on the model) -------------
         val mechanicResults: List<MechanicResult> =
@@ -99,6 +117,7 @@ class PipelineOrchestrator(
 
         // ---- 4. Plot --------------------------------------------------------
         val recentSummary = buildRecentSummary(allTurns)
+        emitProgress("plot: generating turn plan…")
         val plotOutput = runCatching {
             plotStage.execute(
                 sessionPlan = campaign.sessionPlan,
@@ -109,7 +128,7 @@ class PipelineOrchestrator(
                 retrievedMemories = preRetrieval
             )
         }.getOrElse { t ->
-            stageEvents += "plot: fallback used (${t.message ?: t.javaClass.simpleName})"
+            recordEvent("plot: fallback used (${t.message ?: t.javaClass.simpleName})")
             dev.diegesis.app.data.model.PlotOutput(
                 synopsis = PlotStage.FALLBACK_SYNOPSIS,
                 present_npcs = campaign.sceneState.presentNpcIds
@@ -121,8 +140,9 @@ class PipelineOrchestrator(
         if (plotOutput.synopsis == PlotStage.FALLBACK_SYNOPSIS &&
             stageEvents.none { it.startsWith("plot:") }
         ) {
-            stageEvents += "plot: fallback used (json parse failed)"
+            recordEvent("plot: fallback used (json parse failed)")
         }
+        if (stageEvents.none { it.startsWith("plot:") }) emitProgress("plot: done")
 
         // present_npcs is authoritative for the new scene; an empty list from a
         // fallback means "keep the previous scene" rather than "everyone leaves".
@@ -134,7 +154,7 @@ class PipelineOrchestrator(
             plotOutput.tracker_updates.isNotEmpty()
 
         if (agencyShouldRun) {
-            stageEvents += "agency: run for ${presentNpcIds.size} npc(s)"
+            recordEvent("agency: run for ${presentNpcIds.size} npc(s)")
             presentNpcIds.forEach { npcId ->
                 runCatching {
                     val npc = npcStorage.load(campaignId, npcId) ?: return@runCatching
@@ -142,9 +162,10 @@ class PipelineOrchestrator(
                     val updated = agencyStage.updateNpcAgency(npc, witnessed)
                     npcStorage.save(campaignId, npc.copy(agency = updated))
                 }.onFailure { t ->
-                    stageEvents += "agency: update failed for $npcId (${t.message ?: t.javaClass.simpleName})"
+                    recordEvent("agency: update failed for $npcId (${t.message ?: t.javaClass.simpleName})")
                 }
             }
+            emitProgress("agency: done")
         }
 
         // ---- 6. Visibility-filtered assembly --------------------------------
@@ -161,8 +182,10 @@ class PipelineOrchestrator(
         val historyBudgetTokens = ((contextWindowTokens - writeMaxTokens) * 0.8).toInt()
         val trimmedTurns = ContextWindowTrimmer.trimToFit(visibleTurns, historyBudgetTokens)
         if (trimmedTurns.size < visibleTurns.size) {
-            stageEvents += "context: history trimmed to last ${trimmedTurns.size} turns " +
-                "(budget $historyBudgetTokens tokens)"
+            recordEvent(
+                "context: history trimmed to last ${trimmedTurns.size} turns " +
+                    "(budget $historyBudgetTokens tokens)"
+            )
         }
 
         val context = VisibilityContextAssembler.assemble(
@@ -178,6 +201,7 @@ class PipelineOrchestrator(
         // ---- 7. Scene (streaming) -------------------------------------------
         val prose = StringBuilder()
         var interrupted = false
+        emitProgress("scene: streaming…")
         try {
             sceneStage.execute(context).collect { chunk ->
                 prose.append(chunk)
@@ -190,16 +214,18 @@ class PipelineOrchestrator(
             // partial prose is worth persisting.
             if (t is CancellationException) throw t
             interrupted = true
-            stageEvents += "scene: interrupted (${t.message ?: t.javaClass.simpleName})"
+            recordEvent("scene: interrupted (${t.message ?: t.javaClass.simpleName})")
         }
         if (prose.isBlank() && !interrupted) {
             interrupted = true
-            stageEvents += "scene: interrupted (empty output)"
+            recordEvent("scene: interrupted (empty output)")
         }
 
         val sceneOutput = prose.toString()
 
         // ---- 8. Memory extraction -------------------------------------------
+        emitProgress("memory: extracting…")
+        var memoryFailed = false
         val extracted = runCatching {
             memoryExtractionStage.execute(
                 playerInput = playerInput,
@@ -208,23 +234,25 @@ class PipelineOrchestrator(
                 turnIndex = turnIndex
             )
         }.getOrElse { t ->
-            stageEvents += "memory: extraction failed (${t.message ?: t.javaClass.simpleName})"
+            recordEvent("memory: extraction failed (${t.message ?: t.javaClass.simpleName})")
+            memoryFailed = true
             emptyList()
         }
 
         extracted.forEach { entry ->
             runCatching { memoryStorage.appendMemory(campaignId, entry) }
                 .onFailure { t ->
-                    stageEvents += "memory: append failed (${t.message ?: t.javaClass.simpleName})"
+                    recordEvent("memory: append failed (${t.message ?: t.javaClass.simpleName})")
                 }
         }
+        if (!memoryFailed) emitProgress("memory: done")
 
         // ---- 9. Tracker updates + scene state -------------------------------
         plotOutput.tracker_updates.forEach { update ->
             runCatching {
                 val npc = npcStorage.load(campaignId, update.npc)
                 if (npc == null) {
-                    stageEvents += "tracker: update skipped, unknown npc ${update.npc}"
+                    recordEvent("tracker: update skipped, unknown npc ${update.npc}")
                     return@runCatching
                 }
                 val current = npc.trackers[update.key] ?: 0
@@ -232,9 +260,9 @@ class PipelineOrchestrator(
                 merged[update.key] = current + update.delta
                 npcStorage.save(campaignId, npc.copy(trackers = merged))
                 val sign = if (update.delta >= 0) "+" else ""
-                stageEvents += "tracker: ${update.key} $sign${update.delta} applied to ${update.npc}"
+                recordEvent("tracker: ${update.key} $sign${update.delta} applied to ${update.npc}")
             }.onFailure { t ->
-                stageEvents += "tracker: update failed for ${update.npc} (${t.message ?: t.javaClass.simpleName})"
+                recordEvent("tracker: update failed for ${update.npc} (${t.message ?: t.javaClass.simpleName})")
             }
         }
 
