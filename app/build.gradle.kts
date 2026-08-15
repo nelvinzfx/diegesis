@@ -18,6 +18,17 @@ android {
         versionName = "0.1.0"
     }
 
+    // Pinned debug keystore so every CI build signs identically and
+    // updates install in place (no uninstall, no data loss).
+    signingConfigs {
+        named("debug") {
+            storeFile = rootProject.file("debug.keystore")
+            storePassword = "android"
+            keyAlias = "diegesis-debug"
+            keyPassword = "android"
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = false
