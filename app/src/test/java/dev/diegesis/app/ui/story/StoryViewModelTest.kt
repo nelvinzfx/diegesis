@@ -10,6 +10,8 @@ import dev.diegesis.app.data.storage.NpcStorage
 import dev.diegesis.app.data.storage.TurnStorage
 import dev.diegesis.app.engine.PipelineOrchestrator
 import dev.diegesis.app.engine.ai.AiCaller
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.asFlow
 import kotlinx.coroutines.runBlocking
@@ -19,7 +21,6 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.TemporaryFolder
 import java.io.File
-import java.util.UUID
 
 class StoryViewModelTest {
 
@@ -99,7 +100,8 @@ class StoryViewModelTest {
             campaignId = campaignId,
             orchestrator = orchestrator,
             campaignStorage = campaigns,
-            turnStorage = turns
+            turnStorage = turns,
+            coroutineScope = CoroutineScope(Dispatchers.Unconfined)
         )
     }
 

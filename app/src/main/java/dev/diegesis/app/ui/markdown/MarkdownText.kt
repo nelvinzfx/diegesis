@@ -256,62 +256,72 @@ fun parseMarkdownBlocks(markdown: String): List<MarkdownBlock> {
 
 fun parseInlineMarkdown(text: String, baseStyle: TextStyle) = buildAnnotatedString {
     var i = 0
-    val chars = text.toCharArray()
-
-    while (i < chars.size) {
+    while (i < text.length) {
         when {
             // Inline code: `code`
-            chars[i] == '`' -> {
-                val start = i + 1
-                i++
-                while (i < chars.size && chars[i] != '`') i++
-                val code = text.substring(start, i)
-                withStyle(
-                    SpanStyle(
-                        fontFamily = FontFamily.Monospace,
-                        background = DiegesisColors.Surface2,
-                        fontSize = 14.sp
-                    )
-                ) {
-                    append(" $code ")
+            text[i] == '`' -> {
+                val end = text.indexOf('`', i + 1)
+                if (end != -1) {
+                    val code = text.substring(i + 1, end)
+                    withStyle(
+                        SpanStyle(
+                            fontFamily = FontFamily.Monospace,
+                            background = DiegesisColors.Surface2,
+                            fontSize = 14.sp
+                        )
+                    ) {
+                        append(" $code ")
+                    }
+                    i = end + 1
+                } else {
+                    append(text[i])
+                    i++
                 }
-                i++
             }
             // Bold-Italic: ***text***
-            i + 2 < chars.size && chars[i] == '*' && chars[i+1] == '*' && chars[i+2] == '*' -> {
-                val start = i + 3
-                i += 3
-                while (i + 2 < chars.size && !(chars[i] == '*' && chars[i+1] == '*' && chars[i+2] == '*')) i++
-                val boldItalicText = text.substring(start, i)
-                withStyle(SpanStyle(fontWeight = FontWeight.Bold, fontStyle = FontStyle.Italic)) {
-                    append(boldItalicText)
+            text.startsWith("***", i) -> {
+                val end = text.indexOf("***", i + 3)
+                if (end != -1) {
+                    val content = text.substring(i + 3, end)
+                    withStyle(SpanStyle(fontWeight = FontWeight.Bold, fontStyle = FontStyle.Italic)) {
+                        append(content)
+                    }
+                    i = end + 3
+                } else {
+                    append(text[i])
+                    i++
                 }
-                i += 3
             }
             // Bold: **text**
-            i + 1 < chars.size && chars[i] == '*' && chars[i+1] == '*' -> {
-                val start = i + 2
-                i += 2
-                while (i + 1 < chars.size && !(chars[i] == '*' && chars[i+1] == '*')) i++
-                val boldText = text.substring(start, i)
-                withStyle(SpanStyle(fontWeight = FontWeight.Bold)) {
-                    append(boldText)
+            text.startsWith("**", i) -> {
+                val end = text.indexOf("**", i + 2)
+                if (end != -1) {
+                    val content = text.substring(i + 2, end)
+                    withStyle(SpanStyle(fontWeight = FontWeight.Bold)) {
+                        append(content)
+                    }
+                    i = end + 2
+                } else {
+                    append(text[i])
+                    i++
                 }
-                i += 2
             }
             // Italic: *text*
-            chars[i] == '*' -> {
-                val start = i + 1
-                i++
-                while (i < chars.size && chars[i] != '*') i++
-                val italicText = text.substring(start, i)
-                withStyle(SpanStyle(fontStyle = FontStyle.Italic)) {
-                    append(italicText)
+            text[i] == '*' -> {
+                val end = text.indexOf('*', i + 1)
+                if (end != -1) {
+                    val content = text.substring(i + 1, end)
+                    withStyle(SpanStyle(fontStyle = FontStyle.Italic)) {
+                        append(content)
+                    }
+                    i = end + 1
+                } else {
+                    append(text[i])
+                    i++
                 }
-                i++
             }
             else -> {
-                append(chars[i])
+                append(text[i])
                 i++
             }
         }

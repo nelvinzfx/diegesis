@@ -7,6 +7,7 @@ import dev.diegesis.app.data.model.Turn
 import dev.diegesis.app.data.storage.CampaignStorage
 import dev.diegesis.app.data.storage.TurnStorage
 import dev.diegesis.app.engine.PipelineOrchestrator
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -28,9 +29,11 @@ class StoryViewModel(
     private val campaignId: String,
     private val orchestrator: PipelineOrchestrator,
     private val campaignStorage: CampaignStorage,
-    private val turnStorage: TurnStorage
+    private val turnStorage: TurnStorage,
+    coroutineScope: CoroutineScope? = null
 ) : ViewModel() {
 
+    private val scope = coroutineScope ?: viewModelScope
     private val _uiState = MutableStateFlow(StoryUiState())
     val uiState: StateFlow<StoryUiState> = _uiState.asStateFlow()
 
@@ -58,7 +61,7 @@ class StoryViewModel(
 
         _uiState.update { it.copy(isStreaming = true, streamingText = "", errorMessage = null) }
 
-        activeGenerationJob = viewModelScope.launch {
+        activeGenerationJob = scope.launch {
             try {
                 orchestrator.executeTurn(
                     campaignId = campaignId,
@@ -104,7 +107,7 @@ class StoryViewModel(
 
         _uiState.update { it.copy(isStreaming = true, streamingText = "", errorMessage = null) }
 
-        activeGenerationJob = viewModelScope.launch {
+        activeGenerationJob = scope.launch {
             try {
                 orchestrator.executeTurn(
                     campaignId = campaignId,
