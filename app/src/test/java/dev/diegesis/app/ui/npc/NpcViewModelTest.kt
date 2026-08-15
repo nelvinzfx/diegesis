@@ -167,7 +167,7 @@ class NpcViewModelTest {
             }
         """.trimIndent()
 
-        viewModel.importCardJson(json)
+        viewModel.importCharacterCard(json)
 
         val editing = viewModel.uiState.value.editingNpc
         assertNotNull(editing)
