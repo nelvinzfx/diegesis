@@ -25,7 +25,8 @@ import kotlinx.coroutines.launch
 @Composable
 fun StoryScreen(
     viewModel: StoryViewModel,
-    onBack: () -> Unit
+    onBack: () -> Unit,
+    onOpenNpcs: () -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val listState = rememberLazyListState()
@@ -42,7 +43,8 @@ fun StoryScreen(
         topBar = {
             StoryTopBar(
                 campaign = uiState.campaign,
-                onBack = onBack
+                onBack = onBack,
+                onOpenNpcs = onOpenNpcs
             )
         },
         bottomBar = {
@@ -133,7 +135,8 @@ fun StoryScreen(
 @Composable
 fun StoryTopBar(
     campaign: dev.diegesis.app.data.model.Campaign?,
-    onBack: () -> Unit
+    onBack: () -> Unit,
+    onOpenNpcs: () -> Unit
 ) {
     TopAppBar(
         title = { 
@@ -155,6 +158,16 @@ fun StoryTopBar(
         navigationIcon = {
             IconButton(onClick = onBack) {
                 Text("←", fontSize = 20.sp, color = DiegesisColors.Text)
+            }
+        },
+        actions = {
+            TextButton(onClick = onOpenNpcs) {
+                Text(
+                    text = "NPCs",
+                    color = DiegesisColors.Cyan,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Medium
+                )
             }
         },
         colors = TopAppBarDefaults.topAppBarColors(
