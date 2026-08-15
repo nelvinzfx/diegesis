@@ -5,14 +5,12 @@ import dev.diegesis.app.data.storage.CampaignStorage
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
+import org.junit.Assert.*
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.TemporaryFolder
 import java.io.File
-import kotlin.test.assertEquals
-import kotlin.test.assertFalse
-import kotlin.test.assertTrue
 
 class CampaignListViewModelTest {
     @get:Rule
@@ -41,7 +39,6 @@ class CampaignListViewModelTest {
 
     @Test
     fun `loadCampaigns returns campaigns sorted by updatedAt descending`() = runBlocking {
-        // Create test campaigns
         val campaign1 = Campaign(
             id = "id1",
             title = "Campaign 1",
@@ -90,6 +87,6 @@ class CampaignListViewModelTest {
         viewModel.deleteCampaign("nonexistent-id")
         viewModel.clearError()
 
-        assertEquals(null, viewModel.uiState.value.errorMessage)
+        assertNull(viewModel.uiState.value.errorMessage)
     }
 }

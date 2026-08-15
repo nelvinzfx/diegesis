@@ -111,7 +111,7 @@ fun SettingsScreen(
                     modifier = Modifier.fillMaxWidth()
                 )
 
-                Divider(color = DiegesisColors.Border, modifier = Modifier.padding(vertical = 8.dp))
+                HorizontalDivider(color = DiegesisColors.Border, modifier = Modifier.padding(vertical = 8.dp))
 
                 // Think Model Section
                 Text(
@@ -144,7 +144,7 @@ fun SettingsScreen(
                     modifier = Modifier.fillMaxWidth()
                 )
 
-                Divider(color = DiegesisColors.Border, modifier = Modifier.padding(vertical = 8.dp))
+                HorizontalDivider(color = DiegesisColors.Border, modifier = Modifier.padding(vertical = 8.dp))
 
                 // Write Model Section
                 Text(

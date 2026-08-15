@@ -7,17 +7,14 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.runBlocking
+import org.junit.Assert.*
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.TemporaryFolder
 import java.io.File
-import kotlin.test.assertEquals
-import kotlin.test.assertFalse
-import kotlin.test.assertNotNull
-import kotlin.test.assertTrue
 
-class FakeAiCaller : AiCaller {
+class FakeCampaignAiCaller : AiCaller {
     override suspend fun <T> generateStructured(
         systemPrompt: String,
         userPrompt: String,
@@ -44,7 +41,7 @@ class CampaignCreateViewModelTest {
     fun setup() {
         tempDir = tmp.newFolder("campaign_create_test")
         storage = CampaignStorage(tempDir)
-        aiCaller = FakeAiCaller()
+        aiCaller = FakeCampaignAiCaller()
         viewModel = CampaignCreateViewModel(
             storage = storage,
             aiCaller = aiCaller,
@@ -96,7 +93,7 @@ class CampaignCreateViewModelTest {
     @Test
     fun `generateSessionPlan fails when premise is blank`() = runBlocking {
         viewModel.generateSessionPlan()
-        
+
         val state = viewModel.uiState.value
         assertNotNull(state.errorMessage)
         assertTrue(state.errorMessage!!.contains("Premise"))
@@ -148,7 +145,7 @@ class CampaignCreateViewModelTest {
         assertNotNull(createdId)
         val saved = storage.load(createdId!!)
         assertNotNull(saved)
-        assertEquals("Title", saved.title)
+        assertEquals("Title", saved!!.title)
         assertEquals("Premise", saved.premise)
         assertEquals("Dungeon", saved.sceneState.location)
         assertEquals("Warrior", saved.playerPersona)

@@ -6,16 +6,12 @@ import dev.diegesis.app.data.storage.NpcStorage
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
+import org.junit.Assert.*
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.TemporaryFolder
 import java.io.File
-import kotlin.test.assertEquals
-import kotlin.test.assertFalse
-import kotlin.test.assertNotNull
-import kotlin.test.assertNull
-import kotlin.test.assertTrue
 
 class NpcViewModelTest {
     @get:Rule
@@ -71,7 +67,7 @@ class NpcViewModelTest {
 
         val npc = viewModel.uiState.value.editingNpc
         assertNotNull(npc)
-        assertEquals("", npc.name)
+        assertEquals("", npc!!.name)
         assertEquals("", npc.description)
         assertEquals("", npc.personality)
         assertTrue(npc.voiceExamples.isEmpty())
@@ -137,7 +133,7 @@ class NpcViewModelTest {
 
         val saved = storage.load(campaignId, npc.id)
         assertNotNull(saved)
-        assertEquals("Saved NPC", saved.name)
+        assertEquals("Saved NPC", saved!!.name)
         assertEquals(10, saved.trackers["trust"])
     }
 
@@ -175,7 +171,7 @@ class NpcViewModelTest {
 
         val editing = viewModel.uiState.value.editingNpc
         assertNotNull(editing)
-        assertEquals("Imported Hero", editing.name)
+        assertEquals("Imported Hero", editing!!.name)
         assertEquals("Hero description", editing.description)
         assertEquals("Brave", editing.personality)
         assertFalse(viewModel.uiState.value.showImportDialog)
