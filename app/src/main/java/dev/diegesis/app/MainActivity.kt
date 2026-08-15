@@ -18,6 +18,8 @@ import dev.diegesis.app.engine.PipelineOrchestrator
 import dev.diegesis.app.engine.ai.DefaultAiCaller
 import dev.diegesis.app.ui.campaign.CampaignCreateScreen
 import dev.diegesis.app.ui.campaign.CampaignCreateViewModel
+import dev.diegesis.app.ui.campaign.CampaignEditScreen
+import dev.diegesis.app.ui.campaign.CampaignEditViewModel
 import dev.diegesis.app.ui.campaign.CampaignListScreen
 import dev.diegesis.app.ui.campaign.CampaignListViewModel
 import dev.diegesis.app.ui.memories.MemoriesScreen
@@ -37,6 +39,7 @@ import java.util.concurrent.TimeUnit
 sealed class Screen {
     object CampaignList : Screen()
     object CampaignCreate : Screen()
+    data class CampaignEdit(val campaignId: String) : Screen()
     data class Story(val campaignId: String) : Screen()
     data class NpcManagement(val campaignId: String) : Screen()
     data class Memories(val campaignId: String) : Screen()
@@ -110,6 +113,7 @@ fun DiegesisApp(
             is Screen.NpcManagement -> Screen.Story(screen.campaignId)
             is Screen.Memories -> Screen.Story(screen.campaignId)
             is Screen.CampaignCreate -> Screen.CampaignList
+            is Screen.CampaignEdit -> Screen.CampaignList
             is Screen.Settings -> Screen.CampaignList
             is Screen.CampaignList -> Screen.CampaignList
         }
@@ -128,6 +132,9 @@ fun DiegesisApp(
                 onCreateCampaign = {
                     currentScreen = Screen.CampaignCreate
                 },
+                onEditCampaign = { campaignId ->
+                    currentScreen = Screen.CampaignEdit(campaignId)
+                },
                 onOpenSettings = {
                     currentScreen = Screen.Settings
                 }
@@ -144,6 +151,17 @@ fun DiegesisApp(
                 onCampaignCreated = { campaignId ->
                     currentScreen = Screen.Story(campaignId)
                 }
+            )
+        }
+
+        is Screen.CampaignEdit -> {
+            val viewModel = remember(screen.campaignId) {
+                CampaignEditViewModel(campaignStorage, screen.campaignId)
+            }
+            CampaignEditScreen(
+                viewModel = viewModel,
+                onBack = { currentScreen = Screen.CampaignList },
+                onCampaignSaved = { currentScreen = Screen.CampaignList }
             )
         }
 

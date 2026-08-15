@@ -24,6 +24,7 @@ fun CampaignListScreen(
     viewModel: CampaignListViewModel,
     onOpenCampaign: (String) -> Unit,
     onCreateCampaign: () -> Unit,
+    onEditCampaign: (String) -> Unit,
     onOpenSettings: () -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -76,6 +77,7 @@ fun CampaignListScreen(
                         CampaignCard(
                             campaign = campaign,
                             onClick = { onOpenCampaign(campaign.id) },
+                            onEdit = { onEditCampaign(campaign.id) },
                             onDelete = { viewModel.deleteCampaign(campaign.id) }
                         )
                     }
@@ -111,6 +113,7 @@ fun CampaignListScreen(
 fun CampaignCard(
     campaign: Campaign,
     onClick: () -> Unit,
+    onEdit: () -> Unit,
     onDelete: () -> Unit
 ) {
     var showDeleteDialog by remember { mutableStateOf(false) }
@@ -142,6 +145,13 @@ fun CampaignCard(
                     color = DiegesisColors.Text,
                     modifier = Modifier.weight(1f)
                 )
+
+                IconButton(
+                    onClick = onEdit,
+                    modifier = Modifier.size(32.dp)
+                ) {
+                    Text("✎", fontSize = 16.sp, color = DiegesisColors.TextDim)
+                }
 
                 IconButton(
                     onClick = { showDeleteDialog = true },
