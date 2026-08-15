@@ -7,8 +7,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -118,7 +116,7 @@ fun StoryScreen(
 
     // Stage details bottom sheet
     if (uiState.activeStageDetailsTurn != null) {
-        val turn = uiState.turns.getOrNull(uiState.activeStageDetailsTurn!!)
+        val turn = uiState.turns.find { it.index == uiState.activeStageDetailsTurn }
         val variantIndex = uiState.selectedVariantIndices[uiState.activeStageDetailsTurn!!] ?: 0
         val variant = turn?.variants?.getOrNull(variantIndex)
         
@@ -156,7 +154,7 @@ fun StoryTopBar(
         },
         navigationIcon = {
             IconButton(onClick = onBack) {
-                Icon(Icons.Default.ArrowBack, contentDescription = "Back")
+                Text("←", fontSize = 20.sp, color = DiegesisColors.Text)
             }
         },
         colors = TopAppBarDefaults.topAppBarColors(
@@ -392,10 +390,10 @@ fun VariantPager(
             onClick = { if (currentIndex > 0) onSwitchVariant(currentIndex - 1) },
             enabled = currentIndex > 0
         ) {
-            Icon(
-                Icons.Default.ChevronLeft,
-                contentDescription = "Previous variant",
-                tint = if (currentIndex > 0) DiegesisColors.Text else DiegesisColors.TextFaint
+            Text(
+                text = "‹",
+                fontSize = 20.sp,
+                color = if (currentIndex > 0) DiegesisColors.Text else DiegesisColors.TextFaint
             )
         }
 
@@ -410,10 +408,10 @@ fun VariantPager(
             onClick = { if (currentIndex < totalVariants - 1) onSwitchVariant(currentIndex + 1) },
             enabled = currentIndex < totalVariants - 1
         ) {
-            Icon(
-                Icons.Default.ChevronRight,
-                contentDescription = "Next variant",
-                tint = if (currentIndex < totalVariants - 1) DiegesisColors.Text else DiegesisColors.TextFaint
+            Text(
+                text = "›",
+                fontSize = 20.sp,
+                color = if (currentIndex < totalVariants - 1) DiegesisColors.Text else DiegesisColors.TextFaint
             )
         }
     }
@@ -510,11 +508,7 @@ fun StoryInputBar(
                         .background(DiegesisColors.Red, RoundedCornerShape(8.dp))
                         .size(48.dp)
                 ) {
-                    Icon(
-                        Icons.Default.Stop,
-                        contentDescription = "Stop generation",
-                        tint = DiegesisColors.Text
-                    )
+                    Text("■", fontSize = 16.sp, color = DiegesisColors.Text)
                 }
             } else {
                 IconButton(
@@ -532,10 +526,10 @@ fun StoryInputBar(
                         )
                         .size(48.dp)
                 ) {
-                    Icon(
-                        Icons.Default.Send,
-                        contentDescription = "Send",
-                        tint = if (inputText.isNotBlank()) DiegesisColors.Bg else DiegesisColors.TextFaint
+                    Text(
+                        "▲",
+                        fontSize = 14.sp,
+                        color = if (inputText.isNotBlank()) DiegesisColors.Bg else DiegesisColors.TextFaint
                     )
                 }
             }
