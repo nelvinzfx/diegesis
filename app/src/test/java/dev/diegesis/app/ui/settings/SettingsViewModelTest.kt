@@ -221,6 +221,91 @@ class SettingsViewModelTest {
         assertEquals(32768, loaded.contextWindowTokens)
     }
 
+    // ---- thinking effort ------------------------------------------------------
+
+    @Test
+    fun `thinking effort saves and loads round trip`() = runBlocking {
+        viewModel.updateThinkingEffort("xhigh")
+        viewModel.saveSettings()
+
+        assertEquals("xhigh", storage.load().thinkingEffort)
+
+        // A fresh ViewModel loads it back into the UI state.
+        val fresh = SettingsViewModel(
+            storage = storage,
+            coroutineScope = CoroutineScope(Dispatchers.Unconfined),
+            ioDispatcher = Dispatchers.Unconfined
+        )
+        assertEquals("xhigh", fresh.uiState.value.thinkingEffort)
+    }
+
+    @Test
+    fun `legacy settings json without thinkingEffort loads with medium`() {
+        // Pre-thinking-effort settings.json: field absent entirely.
+        File(tempDir, "settings.json").writeText(
+            """
+            {
+              "thinkModel": { "provider": "openai-compat", "model": "gpt-4o-mini" },
+              "writeModel": { "provider": "anthropic", "model": "claude-3-5-sonnet-20241022" },
+              "openaiBaseUrl": "https://api.openai.com/v1",
+              "openaiApiKey": "legacy-key",
+              "anthropicApiKey": "",
+              "language": "English"
+            }
+            """.trimIndent()
+        )
+
+        val loaded = storage.load()
+        assertEquals("medium", loaded.thinkingEffort)
+
+        // And the ViewModel surfaces the default too.
+        val fresh = SettingsViewModel(
+            storage = storage,
+            coroutineScope = CoroutineScope(Dispatchers.Unconfined),
+            ioDispatcher = Dispatchers.Unconfined
+        )
+        assertEquals("medium", fresh.uiState.value.thinkingEffort)
+    }
+
+    @Test
+    fun `invalid stored thinkingEffort value falls back to medium`() {
+        // Someone hand-edited settings.json with a value we do not support.
+        File(tempDir, "settings.json").writeText(
+            """
+            {
+              "thinkModel": { "provider": "openai-compat", "model": "gpt-4o-mini" },
+              "writeModel": { "provider": "anthropic", "model": "claude-3-5-sonnet-20241022" },
+              "openaiBaseUrl": "https://api.openai.com/v1",
+              "openaiApiKey": "",
+              "anthropicApiKey": "",
+              "language": "English",
+              "thinkingEffort": "ultra-mega"
+            }
+            """.trimIndent()
+        )
+
+        val fresh = SettingsViewModel(
+            storage = storage,
+            coroutineScope = CoroutineScope(Dispatchers.Unconfined),
+            ioDispatcher = Dispatchers.Unconfined
+        )
+        // The UI state is normalized on load…
+        assertEquals("medium", fresh.uiState.value.thinkingEffort)
+
+        // …and saving persists the normalized value, healing the file.
+        fresh.saveSettings()
+        assertEquals("medium", storage.load().thinkingEffort)
+    }
+
+    @Test
+    fun `updateThinkingEffort normalizes invalid input to medium`() {
+        viewModel.updateThinkingEffort("xhigh")
+        assertEquals("xhigh", viewModel.uiState.value.thinkingEffort)
+
+        viewModel.updateThinkingEffort("garbage")
+        assertEquals("medium", viewModel.uiState.value.thinkingEffort)
+    }
+
     @Test
     fun `language is saved as free text`() = runBlocking {
         viewModel.updateLanguage("日本語")

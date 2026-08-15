@@ -12,7 +12,12 @@ data class AppSettings(
     // Story output language. The writer follows this even when character
     // cards or other source material are in another language.
     val language: String = "English",
-    
+
+    // Reasoning budget for THINK-stage calls (router/plot/agency/extraction).
+    // One of "low" | "medium" | "high" | "xhigh"; unknown values are
+    // normalized to "medium" at use sites. Scene prose is unaffected.
+    val thinkingEffort: String = "medium",
+
     // Generation token limits
     val thinkMaxTokens: Int = 4096,
     val writeMaxTokens: Int = 8192,

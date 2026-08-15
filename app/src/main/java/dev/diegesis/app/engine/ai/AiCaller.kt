@@ -70,6 +70,7 @@ class DefaultAiCaller(
     private val language: String = "English",
     private val thinkMaxTokens: Int = 4096,
     private val writeMaxTokens: Int = 8192,
+    private val thinkingEffort: String = ThinkingEffort.DEFAULT,
     private val client: OkHttpClient,
 ) : AiCaller {
 
@@ -111,11 +112,7 @@ class DefaultAiCaller(
             UIMessage.system(withSceneLanguageDirective(systemPrompt)),
             UIMessage.user(userPrompt),
         )
-        val params = TextGenerationParams(
-            model = Model(modelId = writeModel, displayName = writeModel),
-            temperature = 0.85f,
-            maxTokens = writeMaxTokens,
-        )
+        val params = proseGenerationParams()
 
         return when (writeProvider) {
             PROVIDER_ANTHROPIC -> flow {
@@ -145,11 +142,7 @@ class DefaultAiCaller(
             UIMessage.system(withLanguageDirective(systemPrompt)),
             UIMessage.user(userPrompt),
         )
-        val params = TextGenerationParams(
-            model = Model(modelId = thinkModel, displayName = thinkModel),
-            temperature = 0.7f,
-            maxTokens = thinkMaxTokens,
-        )
+        val params = thinkGenerationParams(temperature = 0.7f)
 
         return when (thinkProvider) {
             PROVIDER_ANTHROPIC -> flow {
@@ -169,11 +162,7 @@ class DefaultAiCaller(
     }
 
     private suspend fun generate(messages: List<UIMessage>): String {
-        val params = TextGenerationParams(
-            model = Model(modelId = thinkModel, displayName = thinkModel),
-            temperature = 0.3f,
-            maxTokens = thinkMaxTokens,
-        )
+        val params = thinkGenerationParams(temperature = 0.3f)
 
         val chunk = when (thinkProvider) {
             PROVIDER_ANTHROPIC ->
@@ -191,6 +180,40 @@ class DefaultAiCaller(
             ?.joinToString("") { it.text }
             .orEmpty()
     }
+
+    /**
+     * Params for THINK-stage requests (structured stages + streamThink):
+     * attaches the thinking-effort body for the think provider. On the
+     * Anthropic path, extended thinking rejects temperature adjustments, so
+     * temperature is dropped whenever the thinking object is attached.
+     * Internal so tests can assert the request shape without an HTTP layer.
+     */
+    internal fun thinkGenerationParams(temperature: Float): TextGenerationParams {
+        val effortBody = when (thinkProvider) {
+            PROVIDER_ANTHROPIC ->
+                ThinkingEffort.anthropicCustomBody(thinkingEffort, thinkMaxTokens)
+
+            PROVIDER_OPENAI -> ThinkingEffort.openAiCustomBody(thinkingEffort)
+
+            else -> emptyList()
+        }
+        val effectiveTemperature =
+            if (thinkProvider == PROVIDER_ANTHROPIC && effortBody.isNotEmpty()) null
+            else temperature
+        return TextGenerationParams(
+            model = Model(modelId = thinkModel, displayName = thinkModel),
+            temperature = effectiveTemperature,
+            maxTokens = thinkMaxTokens,
+            customBody = effortBody,
+        )
+    }
+
+    /** Params for scene prose: fast, non-thinking, never carries effort fields. */
+    internal fun proseGenerationParams(): TextGenerationParams = TextGenerationParams(
+        model = Model(modelId = writeModel, displayName = writeModel),
+        temperature = 0.85f,
+        maxTokens = writeMaxTokens,
+    )
 
     private fun keyForProvider(provider: String): String =
         if (provider == PROVIDER_ANTHROPIC) anthropicApiKey else openaiApiKey

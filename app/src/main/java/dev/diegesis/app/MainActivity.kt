@@ -98,6 +98,7 @@ fun DiegesisApp(
             language = settings.language,
             thinkMaxTokens = settings.thinkMaxTokens,
             writeMaxTokens = settings.writeMaxTokens,
+            thinkingEffort = settings.thinkingEffort,
             client = httpClient
         )
     }

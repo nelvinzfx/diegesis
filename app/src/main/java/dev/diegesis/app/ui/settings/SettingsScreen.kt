@@ -243,6 +243,11 @@ fun SettingsScreen(
                     helper = "Older history is trimmed to fit this window."
                 )
 
+                ThinkingEffortSelector(
+                    selectedLevel = uiState.thinkingEffort,
+                    onLevelChange = { viewModel.updateThinkingEffort(it) }
+                )
+
                 // Save Button
                 Button(
                     onClick = { viewModel.saveSettings() },
@@ -324,6 +329,47 @@ private fun TokenField(
         )
         Text(
             text = helper,
+            fontSize = 12.sp,
+            color = DiegesisColors.TextDim
+        )
+    }
+}
+
+/**
+ * Four-level thinking-effort selector for the Generation section. Chips match
+ * [ProviderSelector]'s visual style; labels are plain text (no icon fonts).
+ */
+@Composable
+private fun ThinkingEffortSelector(
+    selectedLevel: String,
+    onLevelChange: (String) -> Unit
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Text(
+            text = "Thinking Effort",
+            fontSize = 14.sp,
+            color = DiegesisColors.TextDim
+        )
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            listOf("low", "medium", "high", "xhigh").forEach { level ->
+                FilterChip(
+                    selected = selectedLevel == level,
+                    onClick = { onLevelChange(level) },
+                    label = { Text(level) },
+                    colors = FilterChipDefaults.filterChipColors(
+                        selectedContainerColor = DiegesisColors.Amber,
+                        selectedLabelColor = DiegesisColors.Bg,
+                        containerColor = DiegesisColors.Surface2,
+                        labelColor = DiegesisColors.Text
+                    )
+                )
+            }
+        }
+        Text(
+            text = "Reasoning budget for planning stages. Scene writing is unaffected.",
             fontSize = 12.sp,
             color = DiegesisColors.TextDim
         )

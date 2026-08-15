@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import dev.diegesis.app.data.model.AppSettings
 import dev.diegesis.app.data.model.StageModelSelection
 import dev.diegesis.app.data.storage.SettingsStorage
+import dev.diegesis.app.engine.ai.ThinkingEffort
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -23,6 +24,8 @@ data class SettingsUiState(
     val writeProvider: String = "anthropic",
     val writeModel: String = "claude-3-5-sonnet-20241022",
     val language: String = "English",
+    // Reasoning budget for THINK-stage calls; "low" | "medium" | "high" | "xhigh".
+    val thinkingEffort: String = "medium",
     // Generation controls held as text so the fields are freely editable;
     // validated (Int, >= 512) on save, invalid input reverts to last saved.
     val thinkMaxTokens: String = "4096",
@@ -63,6 +66,7 @@ class SettingsViewModel(
                     writeProvider = settings.writeModel.provider,
                     writeModel = settings.writeModel.model,
                     language = settings.language,
+                    thinkingEffort = ThinkingEffort.normalize(settings.thinkingEffort),
                     thinkMaxTokens = settings.thinkMaxTokens.toString(),
                     writeMaxTokens = settings.writeMaxTokens.toString(),
                     contextWindowTokens = settings.contextWindowTokens.toString(),
@@ -109,6 +113,10 @@ class SettingsViewModel(
         _uiState.value = _uiState.value.copy(language = language)
     }
 
+    fun updateThinkingEffort(level: String) {
+        _uiState.value = _uiState.value.copy(thinkingEffort = ThinkingEffort.normalize(level))
+    }
+
     fun updateThinkMaxTokens(value: String) {
         _uiState.value = _uiState.value.copy(thinkMaxTokens = value)
     }
@@ -139,6 +147,7 @@ class SettingsViewModel(
                     thinkModel = StageModelSelection(state.thinkProvider, state.thinkModel.trim()),
                     writeModel = StageModelSelection(state.writeProvider, state.writeModel.trim()),
                     language = state.language.trim(),
+                    thinkingEffort = ThinkingEffort.normalize(state.thinkingEffort),
                     thinkMaxTokens = thinkTokens,
                     writeMaxTokens = writeTokens,
                     contextWindowTokens = windowTokens
