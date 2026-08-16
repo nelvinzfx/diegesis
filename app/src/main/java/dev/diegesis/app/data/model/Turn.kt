@@ -25,5 +25,11 @@ data class TurnVariant(
      * "plot: fallback used (json parse failed)". Default keeps pre-phase-6
      * turn files loadable.
      */
-    val stageEvents: List<String> = emptyList()
+    val stageEvents: List<String> = emptyList(),
+    /**
+     * Model reasoning/thinking streamed during the scene stage (OpenAI-compat
+     * `delta.reasoning`/`delta.reasoning_content`, Anthropic thinking blocks).
+     * Null when the model emitted none. Default keeps old turn files loadable.
+     */
+    val reasoning: String? = null
 )

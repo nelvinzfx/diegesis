@@ -23,6 +23,10 @@ data class CampaignCreateUiState(
     val playerPersona: String = "",
     val sessionPlan: String = "",
     val isGeneratingPlan: Boolean = false,
+    // Live model reasoning/thinking during plan generation; null when the
+    // model emitted none (so the UI never renders an empty block). Live-only:
+    // not persisted with the campaign.
+    val planReasoning: String? = null,
     val errorMessage: String? = null
 )
 
@@ -65,7 +69,11 @@ class CampaignCreateViewModel(
         }
 
         scope.launch {
-            _uiState.value = _uiState.value.copy(isGeneratingPlan = true, errorMessage = null)
+            _uiState.value = _uiState.value.copy(
+                isGeneratingPlan = true,
+                planReasoning = null,
+                errorMessage = null
+            )
             try {
                 val systemPrompt = """
 You are a tabletop RPG session planner. Given a campaign premise, generate a structured 3-act story arc outline in markdown format.
@@ -88,7 +96,15 @@ Generate a session plan with a 3-act structure.
 """.trim()
 
                 val plan = StringBuilder()
-                aiCaller.streamThink(systemPrompt, userPrompt).collect { delta ->
+                aiCaller.streamThink(
+                    systemPrompt,
+                    userPrompt,
+                    onReasoningChunk = { delta ->
+                        _uiState.value = _uiState.value.copy(
+                            planReasoning = (_uiState.value.planReasoning ?: "") + delta
+                        )
+                    }
+                ).collect { delta ->
                     plan.append(delta)
                     _uiState.value = _uiState.value.copy(sessionPlan = plan.toString())
                 }
@@ -97,6 +113,7 @@ Generate a session plan with a 3-act structure.
             } catch (e: Exception) {
                 _uiState.value = _uiState.value.copy(
                     isGeneratingPlan = false,
+                    planReasoning = null,
                     errorMessage = "Failed to generate plan: ${e.message}"
                 )
             }

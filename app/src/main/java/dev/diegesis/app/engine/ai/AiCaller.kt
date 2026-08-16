@@ -42,6 +42,20 @@ interface AiCaller {
     ): Flow<String>
 
     /**
+     * [streamProse] with a live reasoning tap. Providers that stream
+     * reasoning/thinking deltas (OpenAI-compat `delta.reasoning` /
+     * `delta.reasoning_content`, Anthropic thinking blocks) route them to
+     * [onReasoningChunk]; prose tokens keep flowing through the returned
+     * flow. The default ignores the tap and delegates, so existing fakes
+     * and call sites compile unchanged.
+     */
+    suspend fun streamProse(
+        systemPrompt: String,
+        userPrompt: String,
+        onReasoningChunk: ((String) -> Unit)?,
+    ): Flow<String> = streamProse(systemPrompt, userPrompt)
+
+    /**
      * Stream non-scene prose from the THINK model (e.g. session plan
      * generation). Default falls back to streamProse so fakes stay valid;
      * the real caller overrides it with the think provider/model.
@@ -50,6 +64,16 @@ interface AiCaller {
         systemPrompt: String,
         userPrompt: String,
     ): Flow<String> = streamProse(systemPrompt, userPrompt)
+
+    /**
+     * [streamThink] with a live reasoning tap; see the [streamProse]
+     * overload for semantics. Default ignores the tap and delegates.
+     */
+    suspend fun streamThink(
+        systemPrompt: String,
+        userPrompt: String,
+        onReasoningChunk: ((String) -> Unit)?,
+    ): Flow<String> = streamThink(systemPrompt, userPrompt)
 }
 
 /**
@@ -104,6 +128,12 @@ class DefaultAiCaller(
     override suspend fun streamProse(
         systemPrompt: String,
         userPrompt: String,
+    ): Flow<String> = streamProse(systemPrompt, userPrompt, onReasoningChunk = null)
+
+    override suspend fun streamProse(
+        systemPrompt: String,
+        userPrompt: String,
+        onReasoningChunk: ((String) -> Unit)?,
     ): Flow<String> {
         if (keyForProvider(writeProvider).isBlank()) {
             return flow { emit(MISSING_KEY_MESSAGE) }
@@ -118,13 +148,19 @@ class DefaultAiCaller(
             PROVIDER_ANTHROPIC -> flow {
                 ClaudeProvider(client)
                     .streamText(claudeSetting(), messages, params)
-                    .collect { chunk -> chunk.textDeltas().forEach { emit(it) } }
+                    .collect { chunk ->
+                        chunk.reasoningDeltas().forEach { onReasoningChunk?.invoke(it) }
+                        chunk.textDeltas().forEach { emit(it) }
+                    }
             }
 
             PROVIDER_OPENAI -> flow {
                 OpenAIProvider(client)
                     .streamText(openAiSetting(), messages, params)
-                    .collect { chunk -> chunk.textDeltas().forEach { emit(it) } }
+                    .collect { chunk ->
+                        chunk.reasoningDeltas().forEach { onReasoningChunk?.invoke(it) }
+                        chunk.textDeltas().forEach { emit(it) }
+                    }
             }
 
             else -> emptyFlow()
@@ -134,6 +170,12 @@ class DefaultAiCaller(
     override suspend fun streamThink(
         systemPrompt: String,
         userPrompt: String,
+    ): Flow<String> = streamThink(systemPrompt, userPrompt, onReasoningChunk = null)
+
+    override suspend fun streamThink(
+        systemPrompt: String,
+        userPrompt: String,
+        onReasoningChunk: ((String) -> Unit)?,
     ): Flow<String> {
         if (keyForProvider(thinkProvider).isBlank()) {
             return flow { emit(MISSING_KEY_MESSAGE) }
@@ -148,13 +190,19 @@ class DefaultAiCaller(
             PROVIDER_ANTHROPIC -> flow {
                 ClaudeProvider(client)
                     .streamText(claudeSetting(), messages, params)
-                    .collect { chunk -> chunk.textDeltas().forEach { emit(it) } }
+                    .collect { chunk ->
+                        chunk.reasoningDeltas().forEach { onReasoningChunk?.invoke(it) }
+                        chunk.textDeltas().forEach { emit(it) }
+                    }
             }
 
             PROVIDER_OPENAI -> flow {
                 OpenAIProvider(client)
                     .streamText(openAiSetting(), messages, params)
-                    .collect { chunk -> chunk.textDeltas().forEach { emit(it) } }
+                    .collect { chunk ->
+                        chunk.reasoningDeltas().forEach { onReasoningChunk?.invoke(it) }
+                        chunk.textDeltas().forEach { emit(it) }
+                    }
             }
 
             else -> emptyFlow()
@@ -241,6 +289,22 @@ class DefaultAiCaller(
             ?.parts
             ?.filterIsInstance<UIMessagePart.Text>()
             ?.map { it.text }
+            ?.filter { it.isNotEmpty() }
+            .orEmpty()
+
+    /**
+     * Reasoning deltas surfaced by the :ai parsers — the OpenAI-compat
+     * parser maps `delta.reasoning_content` / `delta.reasoning` (and
+     * Mistral thinking blocks) and ClaudeProvider maps `thinking_delta`
+     * blocks onto [UIMessagePart.Reasoning]. Kept separate from
+     * [textDeltas] so reasoning never leaks into prose.
+     */
+    private fun dev.diegesis.ai.ui.MessageChunk.reasoningDeltas(): List<String> =
+        choices.firstOrNull()
+            ?.let { it.delta ?: it.message }
+            ?.parts
+            ?.filterIsInstance<UIMessagePart.Reasoning>()
+            ?.map { it.reasoning }
             ?.filter { it.isNotEmpty() }
             .orEmpty()
 

@@ -132,6 +132,26 @@ class ModelSerializationTest {
     }
 
     @Test
+    fun testTurnVariantReasoningRoundTripAndDefault() {
+        // Round-trip with reasoning set.
+        val variant = TurnVariant(
+            id = "v-1",
+            synopsis = "s",
+            sceneOutput = "o",
+            reasoning = "The model considered the tavern layout."
+        )
+        val encoded = json.encodeToString(variant)
+        val decoded = json.decodeFromString<TurnVariant>(encoded)
+        assertEquals(variant, decoded)
+        assertEquals("The model considered the tavern layout.", decoded.reasoning)
+
+        // Old save files without the field still load, defaulting to null.
+        val legacy = """{"id":"v-old","synopsis":"s","sceneOutput":"o"}"""
+        val legacyDecoded = json.decodeFromString<TurnVariant>(legacy)
+        assertNull(legacyDecoded.reasoning)
+    }
+
+    @Test
     fun testPipelineModelsSerialization() {
         val routerDecision = RouterDecision(
             needs_check = true,

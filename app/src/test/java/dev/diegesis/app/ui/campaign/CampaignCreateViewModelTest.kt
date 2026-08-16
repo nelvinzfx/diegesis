@@ -15,6 +15,8 @@ import org.junit.rules.TemporaryFolder
 import java.io.File
 
 class FakeCampaignAiCaller : AiCaller {
+    var reasoningChunks: List<String> = emptyList()
+
     override suspend fun <T> generateStructured(
         systemPrompt: String,
         userPrompt: String,
@@ -26,6 +28,15 @@ class FakeCampaignAiCaller : AiCaller {
         systemPrompt: String,
         userPrompt: String
     ): Flow<String> = flowOf("## Act 1\n", "### Setup\n", "The story begins...")
+
+    override suspend fun streamThink(
+        systemPrompt: String,
+        userPrompt: String,
+        onReasoningChunk: ((String) -> Unit)?
+    ): Flow<String> {
+        reasoningChunks.forEach { onReasoningChunk?.invoke(it) }
+        return streamProse(systemPrompt, userPrompt)
+    }
 }
 
 class CampaignCreateViewModelTest {
@@ -34,7 +45,7 @@ class CampaignCreateViewModelTest {
 
     private lateinit var tempDir: File
     private lateinit var storage: CampaignStorage
-    private lateinit var aiCaller: AiCaller
+    private lateinit var aiCaller: FakeCampaignAiCaller
     private lateinit var viewModel: CampaignCreateViewModel
 
     @Before
@@ -109,6 +120,26 @@ class CampaignCreateViewModelTest {
         assertFalse(state.isGeneratingPlan)
         assertTrue(state.sessionPlan.contains("Act 1"))
         assertTrue(state.sessionPlan.contains("The story begins"))
+    }
+
+    @Test
+    fun `generateSessionPlan surfaces reasoning chunks in planReasoning`() = runBlocking {
+        aiCaller.reasoningChunks = listOf("Sketching ", "three acts.")
+        viewModel.updatePremise("A fantasy adventure")
+        viewModel.generateSessionPlan()
+
+        val state = viewModel.uiState.value
+        assertFalse(state.isGeneratingPlan)
+        assertEquals("Sketching three acts.", state.planReasoning)
+        assertTrue(state.sessionPlan.contains("Act 1"))
+    }
+
+    @Test
+    fun `generateSessionPlan without reasoning leaves planReasoning null`() = runBlocking {
+        viewModel.updatePremise("A fantasy adventure")
+        viewModel.generateSessionPlan()
+
+        assertNull(viewModel.uiState.value.planReasoning)
     }
 
     @Test

@@ -1,6 +1,7 @@
 package dev.diegesis.app.ui.campaign
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -9,10 +10,63 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import dev.diegesis.app.ui.theme.DiegesisColors
+
+@Composable
+private fun PlanThinkingBlock(
+    reasoning: String,
+    isGenerating: Boolean,
+    planStarted: Boolean
+) {
+    // Auto-expanded while the model is thinking so the wait is visible;
+    // auto-collapsed once plan text starts flowing. Tappable either way.
+    var expanded by remember { mutableStateOf(isGenerating && !planStarted) }
+
+    LaunchedEffect(planStarted) {
+        if (isGenerating && planStarted) expanded = false
+    }
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(DiegesisColors.Surface2, RoundedCornerShape(8.dp))
+            .clickable { expanded = !expanded }
+            .padding(10.dp),
+        verticalArrangement = Arrangement.spacedBy(6.dp)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = if (isGenerating && !planStarted) "Thinking…" else "Thinking",
+                color = DiegesisColors.TextDim,
+                fontSize = 12.sp,
+                fontWeight = FontWeight.Medium
+            )
+            Text(
+                text = if (expanded) "›" else "‹",
+                color = DiegesisColors.TextFaint,
+                fontSize = 14.sp
+            )
+        }
+
+        if (expanded) {
+            Text(
+                text = reasoning,
+                color = DiegesisColors.TextFaint,
+                fontSize = 12.sp,
+                lineHeight = 17.sp,
+                fontFamily = FontFamily.Monospace
+            )
+        }
+    }
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -151,6 +205,16 @@ fun CampaignCreateScreen(
                     Text(
                         text = if (uiState.isGeneratingPlan) "Generating..." else "Generate Session Plan",
                         fontSize = 16.sp
+                    )
+                }
+
+                // Live model thinking during plan generation (collapsible;
+                // shown only while reasoning text exists).
+                if (!uiState.planReasoning.isNullOrBlank()) {
+                    PlanThinkingBlock(
+                        reasoning = uiState.planReasoning!!,
+                        isGenerating = uiState.isGeneratingPlan,
+                        planStarted = uiState.sessionPlan.isNotBlank()
                     )
                 }
 

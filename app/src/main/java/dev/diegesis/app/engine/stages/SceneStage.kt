@@ -26,17 +26,20 @@ Output markdown prose only — no headers, no meta commentary.
      * 
      * @param context Visibility-assembled scene context
      * @param narratorVoice Campaign-configurable narrator instructions
+     * @param onReasoningChunk Live tap for model reasoning deltas; null = ignore
      * @return Flow of prose chunks
      */
     suspend fun execute(
         context: VisibilityContextAssembler.SceneContext,
-        narratorVoice: String = DEFAULT_NARRATOR_VOICE
+        narratorVoice: String = DEFAULT_NARRATOR_VOICE,
+        onReasoningChunk: ((String) -> Unit)? = null
     ): Flow<String> {
         val userPrompt = VisibilityContextAssembler.formatPrompt(context)
         
         return aiCaller.streamProse(
             systemPrompt = narratorVoice.trimIndent(),
-            userPrompt = userPrompt
+            userPrompt = userPrompt,
+            onReasoningChunk = onReasoningChunk
         )
     }
 }

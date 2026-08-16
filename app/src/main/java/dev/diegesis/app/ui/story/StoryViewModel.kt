@@ -22,6 +22,9 @@ data class StoryUiState(
     val campaign: Campaign? = null,
     val turns: List<Turn> = emptyList(),
     val streamingText: String = "",
+    // Live model reasoning/thinking for the in-flight turn; null when the
+    // model has emitted none (so the UI never renders an empty block).
+    val streamingReasoning: String? = null,
     val isStreaming: Boolean = false,
     // The just-sent player input, echoed to the UI instantly while the
     // pipeline runs. Cleared when the turn lands (or fails/stops).
@@ -71,6 +74,7 @@ class StoryViewModel(
             it.copy(
                 isStreaming = true,
                 streamingText = "",
+                streamingReasoning = null,
                 pendingPlayerInput = text,
                 errorMessage = null,
                 pipelineProgressLines = emptyList()
@@ -88,6 +92,11 @@ class StoryViewModel(
                             it.copy(pipelineProgressLines = it.pipelineProgressLines + line)
                         }
                     },
+                    onReasoningChunk = { delta ->
+                        _uiState.update {
+                            it.copy(streamingReasoning = (it.streamingReasoning ?: "") + delta)
+                        }
+                    },
                     onChunk = { chunk ->
                         _uiState.update { it.copy(streamingText = it.streamingText + chunk) }
                     }
@@ -98,6 +107,7 @@ class StoryViewModel(
                     it.copy(
                         isStreaming = false,
                         streamingText = "",
+                        streamingReasoning = null,
                         pendingPlayerInput = null,
                         pipelineProgressLines = emptyList()
                     )
@@ -106,13 +116,19 @@ class StoryViewModel(
                 // User pressed stop: keep whatever prose arrived as an
                 // interrupted turn so partial output is never lost.
                 val partial = _uiState.value.streamingText
-                persistInterruptedTurn(playerInput = text, partial = partial)
+                val partialReasoning = _uiState.value.streamingReasoning
+                persistInterruptedTurn(
+                    playerInput = text,
+                    partial = partial,
+                    reasoning = partialReasoning
+                )
                 loadCampaign()
                 loadTurns()
                 _uiState.update {
                     it.copy(
                         isStreaming = false,
                         streamingText = "",
+                        streamingReasoning = null,
                         pendingPlayerInput = null,
                         pipelineProgressLines = emptyList()
                     )
@@ -123,6 +139,7 @@ class StoryViewModel(
                     it.copy(
                         isStreaming = false,
                         streamingText = "",
+                        streamingReasoning = null,
                         pendingPlayerInput = null,
                         errorMessage = "Generation failed: ${e.message}",
                         pipelineProgressLines = emptyList()
@@ -134,7 +151,11 @@ class StoryViewModel(
         }
     }
 
-    private fun persistInterruptedTurn(playerInput: String, partial: String) {
+    private fun persistInterruptedTurn(
+        playerInput: String,
+        partial: String,
+        reasoning: String? = null
+    ) {
         val indices = turnStorage.listTurnIndices(campaignId)
         val idx = (indices.maxOrNull() ?: -1) + 1
         turnStorage.saveTurn(
@@ -147,7 +168,8 @@ class StoryViewModel(
                         id = UUID.randomUUID().toString(),
                         synopsis = "",
                         sceneOutput = partial,
-                        interrupted = true
+                        interrupted = true,
+                        reasoning = reasoning?.takeIf { it.isNotBlank() }
                     )
                 )
             )
@@ -173,6 +195,7 @@ class StoryViewModel(
             it.copy(
                 isStreaming = true,
                 streamingText = "",
+                streamingReasoning = null,
                 errorMessage = null,
                 pipelineProgressLines = emptyList()
             )
@@ -189,6 +212,11 @@ class StoryViewModel(
                             it.copy(pipelineProgressLines = it.pipelineProgressLines + line)
                         }
                     },
+                    onReasoningChunk = { delta ->
+                        _uiState.update {
+                            it.copy(streamingReasoning = (it.streamingReasoning ?: "") + delta)
+                        }
+                    },
                     onChunk = { chunk ->
                         _uiState.update { it.copy(streamingText = it.streamingText + chunk) }
                     }
@@ -202,6 +230,7 @@ class StoryViewModel(
                     it.copy(
                         isStreaming = false,
                         streamingText = "",
+                        streamingReasoning = null,
                         selectedVariantIndices = it.selectedVariantIndices + (turnIndex to newVariantIndex),
                         pipelineProgressLines = emptyList()
                     )
@@ -213,6 +242,7 @@ class StoryViewModel(
                     it.copy(
                         isStreaming = false,
                         streamingText = "",
+                        streamingReasoning = null,
                         pipelineProgressLines = emptyList()
                     )
                 }
@@ -222,6 +252,7 @@ class StoryViewModel(
                     it.copy(
                         isStreaming = false,
                         streamingText = "",
+                        streamingReasoning = null,
                         errorMessage = "Regeneration failed: ${e.message}",
                         pipelineProgressLines = emptyList()
                     )

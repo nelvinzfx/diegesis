@@ -70,6 +70,9 @@ class PipelineOrchestrator(
         // Declared before onChunk so existing trailing-lambda call sites
         // keep binding to onChunk unchanged.
         onPipelineEvent: ((String) -> Unit)? = this.onPipelineEvent,
+        // Live tap for scene-stage reasoning deltas (same style as
+        // onPipelineEvent; default null keeps existing call sites compiling).
+        onReasoningChunk: ((String) -> Unit)? = null,
         onChunk: (String) -> Unit
     ): TurnVariant {
         val campaign = campaignStorage.load(campaignId)
@@ -200,10 +203,17 @@ class PipelineOrchestrator(
 
         // ---- 7. Scene (streaming) -------------------------------------------
         val prose = StringBuilder()
+        val reasoning = StringBuilder()
         var interrupted = false
         emitProgress("scene: streaming…")
         try {
-            sceneStage.execute(context).collect { chunk ->
+            sceneStage.execute(
+                context,
+                onReasoningChunk = { delta ->
+                    reasoning.append(delta)
+                    onReasoningChunk?.invoke(delta)
+                }
+            ).collect { chunk ->
                 prose.append(chunk)
                 onChunk(chunk)
             }
@@ -289,7 +299,8 @@ class PipelineOrchestrator(
             presentNpcIds = presentNpcIds,
             mechanicResults = mechanicResults,
             interrupted = interrupted,
-            stageEvents = stageEvents.toList()
+            stageEvents = stageEvents.toList(),
+            reasoning = reasoning.toString().takeIf { it.isNotBlank() }
         )
 
         runCatching {

@@ -102,7 +102,8 @@ fun StoryScreen(
                                 id = "streaming",
                                 synopsis = "",
                                 sceneOutput = uiState.streamingText,
-                                interrupted = false
+                                interrupted = false,
+                                reasoning = uiState.streamingReasoning
                             ),
                             isStreaming = true,
                             pipelineProgressLines = uiState.pipelineProgressLines
@@ -287,6 +288,17 @@ fun AssistantTurnItem(
         // Pipeline progress card (live during generation)
         if (isStreaming && pipelineProgressLines.isNotEmpty()) {
             PipelineProgressCard(lines = pipelineProgressLines)
+        }
+
+        // Thinking block: model reasoning above the prose. Live while
+        // streaming (auto-expanded until prose starts), collapsed row for
+        // completed turns. Never rendered when the model emitted none.
+        if (!variant.reasoning.isNullOrBlank()) {
+            ThinkingBlock(
+                reasoning = variant.reasoning,
+                isStreaming = isStreaming,
+                proseStarted = variant.sceneOutput.isNotBlank()
+            )
         }
 
         // Mechanics badge
@@ -526,6 +538,59 @@ fun TurnContextMenu(
             }
         }
     )
+}
+
+@Composable
+fun ThinkingBlock(
+    reasoning: String,
+    isStreaming: Boolean,
+    proseStarted: Boolean
+) {
+    // Auto-expanded while the model is thinking (so the user sees progress
+    // instead of a dead screen), auto-collapsed once prose starts flowing.
+    // Completed turns start collapsed; the user can toggle either way.
+    var expanded by remember { mutableStateOf(isStreaming && !proseStarted) }
+
+    LaunchedEffect(proseStarted) {
+        if (isStreaming && proseStarted) expanded = false
+    }
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(DiegesisColors.Surface2, RoundedCornerShape(8.dp))
+            .clickable { expanded = !expanded }
+            .padding(10.dp),
+        verticalArrangement = Arrangement.spacedBy(6.dp)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = if (isStreaming && !proseStarted) "Thinking…" else "Thinking",
+                color = DiegesisColors.TextDim,
+                fontSize = 12.sp,
+                fontWeight = FontWeight.Medium
+            )
+            Text(
+                text = if (expanded) "›" else "‹",
+                color = DiegesisColors.TextFaint,
+                fontSize = 14.sp
+            )
+        }
+
+        if (expanded) {
+            Text(
+                text = reasoning,
+                color = DiegesisColors.TextFaint,
+                fontSize = 12.sp,
+                lineHeight = 17.sp,
+                fontFamily = FontFamily.Monospace
+            )
+        }
+    }
 }
 
 @Composable

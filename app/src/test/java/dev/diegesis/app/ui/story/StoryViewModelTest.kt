@@ -40,6 +40,7 @@ class StoryViewModelTest {
 
     private class FakeStoryAiCaller : AiCaller {
         var proseChunks = listOf("The ", "story ", "unfolds.")
+        var reasoningChunks: List<String> = emptyList()
         var shouldThrow = false
         var gate: kotlinx.coroutines.CompletableDeferred<Unit>? = null
 
@@ -76,6 +77,15 @@ class StoryViewModelTest {
             } else {
                 proseChunks.asFlow()
             }
+        }
+
+        override suspend fun streamProse(
+            systemPrompt: String,
+            userPrompt: String,
+            onReasoningChunk: ((String) -> Unit)?
+        ): Flow<String> {
+            reasoningChunks.forEach { onReasoningChunk?.invoke(it) }
+            return streamProse(systemPrompt, userPrompt)
         }
     }
 
@@ -234,6 +244,51 @@ class StoryViewModelTest {
 
         viewModel.showStageDetails(null)
         assertNull(viewModel.uiState.value.activeStageDetailsTurn)
+    }
+
+    @Test
+    fun `reasoning chunks are buffered and stored on the completed variant`() = runBlocking {
+        fakeAi.reasoningChunks = listOf("Considering ", "the tavern layout.")
+
+        viewModel.sendPlayerInput("I scan the room.")
+
+        val state = viewModel.uiState.value
+        assertFalse(state.isStreaming)
+        // Live buffer cleared after finalize.
+        assertNull(state.streamingReasoning)
+        val variant = state.turns.single().variants.single()
+        assertEquals("Considering the tavern layout.", variant.reasoning)
+    }
+
+    @Test
+    fun `no reasoning means null reasoning on variant and no live state`() = runBlocking {
+        viewModel.sendPlayerInput("I look around.")
+
+        val state = viewModel.uiState.value
+        assertNull(state.streamingReasoning)
+        assertNull(state.turns.single().variants.single().reasoning)
+    }
+
+    @Test
+    fun `reasoning is visible mid-stream and kept on interrupted turn after stop`() = runBlocking {
+        val gate = kotlinx.coroutines.CompletableDeferred<Unit>()
+        fakeAi.gate = gate
+        fakeAi.reasoningChunks = listOf("Weighing ", "the risk.")
+
+        viewModel.sendPlayerInput("risky move")
+
+        // Parked mid-stream: live reasoning buffer is populated.
+        assertTrue(viewModel.uiState.value.isStreaming)
+        assertEquals("Weighing the risk.", viewModel.uiState.value.streamingReasoning)
+
+        viewModel.stopGeneration()
+
+        val state = viewModel.uiState.value
+        assertFalse(state.isStreaming)
+        assertNull(state.streamingReasoning)
+        val variant = state.turns.single().variants.single()
+        assertTrue(variant.interrupted)
+        assertEquals("Weighing the risk.", variant.reasoning)
     }
 
     @Test
